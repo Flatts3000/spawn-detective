@@ -1,0 +1,93 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: [main]
+
+env:
+  # Opt JavaScript-based actions into Node.js 24 ahead of the June 2 2026 forced
+  # switchover. Removes the Node 20 deprecation warning from runs.
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+# Cancel in-progress runs for the same branch/PR when a new commit lands
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Two jobs on purpose, and both are required to merge. `build` does not run the
+# in-world suite, and the in-world suite is where this mod's correctness actually
+# lives - a green compile proves nothing about whether the auditor still names the
+# right cause.
+jobs:
+  # Job name MUST be 'build' - main branch protection requires this status check.
+  build:
+    name: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "25"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
+
+      - name: Validate Gradle wrapper
+        uses: gradle/actions/wrapper-validation@v6
+
+      - name: Build
+        run: ./gradlew build --stacktrace
+
+      - name: Upload mod jar
+        if: success()
+        uses: actions/upload-artifact@v7
+        with:
+          name: spawn-doctor-${{ github.sha }}
+          path: build/libs/*.jar
+          if-no-files-found: error
+          retention-days: 14
+
+  # In-world GameTests - a headless server runs each registered test in a scripted
+  # plot and exits non-zero on any failure. Job name MUST be 'gameTest' - main
+  # branch protection requires this status check.
+  gameTest:
+    name: gameTest
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "25"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
+
+      - name: Validate Gradle wrapper
+        uses: gradle/actions/wrapper-validation@v6
+
+      - name: Run GameTest server
+        run: ./gradlew runGameTestServer --stacktrace

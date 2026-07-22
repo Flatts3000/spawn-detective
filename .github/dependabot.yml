@@ -1,0 +1,30 @@
+version: 2
+
+updates:
+  # GitHub Actions versions
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+    open-pull-requests-limit: 5
+    labels:
+      - "chore"
+    commit-message:
+      prefix: "ci"
+      include: scope
+
+  # Gradle dependencies (build.gradle plugin versions, etc.)
+  - package-ecosystem: gradle
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+    open-pull-requests-limit: 5
+    labels:
+      - "chore"
+    commit-message:
+      prefix: "chore"
+      include: scope

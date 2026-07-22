@@ -15,6 +15,16 @@ what it thinks the game does.
 - Client and server. Safe on a dedicated server; safe in a pack.
 - Adds one item and one command. No world content, no worldgen, no recipes.
 
+**Download:** not yet published - the first alpha is being packaged. Until then,
+build from source (below) or take the jar from a green
+[CI run](https://github.com/Flatts3000/spawn-doctor/actions).
+
+**Reporting:** [issues](https://github.com/Flatts3000/spawn-doctor/issues) for bugs
+and wrong answers, [discussions](https://github.com/Flatts3000/spawn-doctor/discussions)
+for questions. **If it told you the wrong thing, please file it** - use the
+*Misdiagnosis* template. Being wrong is this mod's only real bug class, and one
+pinned-down wrong answer is worth more than any feature request.
+
 ## Using it
 
 | Gesture | What it does |
@@ -132,6 +142,15 @@ author who suspects this mod is misreporting can run `/test run spawndoctor:*`
 inside their own pack, with their own mods loaded. For a mod whose entire value is
 being right, shipping its self-verification is worth the download size.
 
+## Contributing
+
+[`CONTRIBUTING.md`](CONTRIBUTING.md) has the details. The short version: both test
+suites pass, changes to the rule set update `docs/spawn_pipeline_map.md` in the same
+PR, and no cause is ever claimed by elimination.
+
+By participating you agree to the [Code of Conduct](CODE_OF_CONDUCT.md). Security
+issues go through [`SECURITY.md`](SECURITY.md), privately, not the issue tracker.
+
 ## Licence
 
-MIT.
+MIT. See [`LICENSE`](LICENSE).

@@ -105,7 +105,13 @@ public class SpawnReportScreen extends Screen {
         Minecraft.getInstance().setScreen(screen);
 
         EntityType<?> remembered = MobSelection.selected();
-        if (remembered != null && MobSelection.answerFor(position.pos()) == null) {
+        if (remembered != null) {
+            // Always re-ask, even for the block we answered a moment ago. Probing is
+            // an explicit request for a current reading, and the usual reason to probe
+            // the same block twice is that you just changed something - placed a
+            // torch, broke the floor. A brief "checking..." is a far smaller cost than
+            // showing a verdict that was true before the change.
+            MobSelection.invalidate();
             screen.ask(remembered);
         }
     }

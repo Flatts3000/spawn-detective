@@ -47,6 +47,18 @@ public final class MobSelection {
         return pos.equals(answerPos) ? answer : null;
     }
 
+    /**
+     * Drop the cached verdict but keep the selection.
+     *
+     * <p>Called whenever a fresh reading is requested. The world may have changed
+     * since the last answer - that is usually <i>why</i> someone probes the same
+     * block twice - and a stale verdict against current coordinates is exactly the
+     * kind of confident wrong answer this mod exists to avoid.
+     */
+    public static void invalidate() {
+        clearAnswer();
+    }
+
     public static void acceptAnswer(BlockPos pos, AuditReport.Candidate candidate) {
         answerPos = pos;
         answer = candidate;

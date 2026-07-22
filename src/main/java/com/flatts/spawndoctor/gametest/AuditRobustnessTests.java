@@ -2,6 +2,8 @@ package com.flatts.spawndoctor.gametest;
 
 import com.flatts.spawndoctor.audit.AuditReport;
 import com.flatts.spawndoctor.audit.RuleResult;
+import com.flatts.spawndoctor.audit.PositionReport;
+import com.flatts.spawndoctor.audit.SpawnVerdict;
 import com.flatts.spawndoctor.audit.SpawnAuditor;
 import com.flatts.spawndoctor.audit.Verdict;
 import java.util.ArrayList;
@@ -39,6 +41,52 @@ final class AuditRobustnessTests {
         SDGameTests.test("audit_covers_every_spawning_category", 1, AuditRobustnessTests::everyCategory);
         SDGameTests.test("empty_categories_are_not_reported", 1, AuditRobustnessTests::emptyCategoriesHidden);
         SDGameTests.test("headline_always_answers", 1, AuditRobustnessTests::headlineAlwaysAnswers);
+        SDGameTests.test("verdict_never_contradicts_evidence", 1,
+            AuditRobustnessTests::verdictNeverContradictsEvidence);
+    }
+
+    /**
+     * The verdict must agree with every rule shown beneath it.
+     *
+     * <p>Regression test with a precise origin. The banner once read "SKELETON CAN
+     * SPAWN HERE - every gate passes" directly above a World &amp; chunk section
+     * reading "blocked", because the reader stood ten blocks from the anchor and the
+     * 24-block player rule had failed. The banner was consulting only the mob's own
+     * gates.
+     *
+     * <p>It went unnoticed because the logic lived in the renderer, and this suite
+     * runs server-side where no client class can load. Moving it into
+     * {@link SpawnVerdict} is what makes this assertion possible at all - which is
+     * the actual lesson: verdict logic is not presentation.
+     */
+    private static void verdictNeverContradictsEvidence(GameTestHelper helper) {
+        BlockPos pos = helper.absolutePos(new BlockPos(1, 2, 1));
+        PositionReport position = SpawnAuditor.auditPosition(helper.getLevel(), pos);
+
+        for (EntityType<?> type : BuiltInRegistries.ENTITY_TYPE) {
+            if (type.getCategory() == MobCategory.MISC) {
+                continue;
+            }
+            AuditReport.Candidate candidate = SpawnAuditor.auditType(helper.getLevel(), pos, type);
+            SpawnVerdict verdict = SpawnVerdict.of(position, candidate);
+
+            boolean anythingBlocks = position.world().stream().anyMatch(r -> r.verdict().blocks())
+                || candidate.rules().stream().anyMatch(r -> r.verdict().blocks());
+
+            if (verdict.canSpawn() && anythingBlocks) {
+                throw fail(helper, BuiltInRegistries.ENTITY_TYPE.getKey(type).getPath()
+                    + ": verdict says it can spawn while a rule below says otherwise");
+            }
+            if (!verdict.canSpawn() && !anythingBlocks) {
+                throw fail(helper, BuiltInRegistries.ENTITY_TYPE.getKey(type).getPath()
+                    + ": verdict says blocked but no rule blocks");
+            }
+            if (!verdict.canSpawn() && verdict.blocker() == null) {
+                throw fail(helper, BuiltInRegistries.ENTITY_TYPE.getKey(type).getPath()
+                    + ": blocked with no blocker named");
+            }
+        }
+        helper.succeed();
     }
 
     /**

@@ -3,6 +3,7 @@ package com.flatts.spawndoctor.client.screen;
 import com.flatts.spawndoctor.audit.AuditReport;
 import com.flatts.spawndoctor.audit.PositionReport;
 import com.flatts.spawndoctor.audit.RuleResult;
+import com.flatts.spawndoctor.audit.SpawnVerdict;
 import com.flatts.spawndoctor.audit.Verdict;
 import com.flatts.spawndoctor.network.MobAuditPayloads;
 import java.util.ArrayList;
@@ -94,6 +95,11 @@ public class SpawnReportScreen extends Screen {
     public SpawnReportScreen(PositionReport position) {
         super(Component.literal("Spawn Doctor"));
         this.position = position;
+        // Open whichever section holds the evidence. A blocked world gate outranks
+        // the mob's own, since it is what vanilla rejects on first.
+        if (!position.gatesOpen()) {
+            EXPANDED.add(WORLD_SECTION);
+        }
     }
 
     /**
@@ -183,8 +189,9 @@ public class SpawnReportScreen extends Screen {
             }
             built.add(new ReportRow.Spacer());
         } else {
-            built.add(new ReportRow.Section(WHY_SECTION, Component.literal("Why"),
-                Component.literal(answer.viable() ? "all gates pass" : "blocked"),
+            built.add(new ReportRow.Section(WHY_SECTION,
+                Component.literal("This mob's gates"),
+                Component.literal(answer.viable() ? "all pass" : "blocked"),
                 EXPANDED.contains(WHY_SECTION), answer.viable()));
             if (EXPANDED.contains(WHY_SECTION)) {
                 for (RuleResult result : answer.rules()) {
@@ -208,6 +215,16 @@ public class SpawnReportScreen extends Screen {
 
         this.rows = List.copyOf(built);
         clampScroll();
+    }
+
+    private static String describe(SpawnVerdict verdict) {
+        RuleResult blocker = verdict.blocker();
+        return blocker == null ? "" : blocker.rule().title() + ": " + blocker.summary();
+    }
+
+    private static @Nullable String remedyOf(SpawnVerdict verdict) {
+        RuleResult blocker = verdict.blocker();
+        return blocker == null ? null : blocker.effectiveRemedy();
     }
 
     private AuditReport.@Nullable Candidate answer() {
@@ -333,23 +350,29 @@ public class SpawnReportScreen extends Screen {
                 ? "Pick a mob to find out whether it can spawn at this block."
                 : "Asking the server about " + name(selected) + ".");
         } else {
-            boolean can = answer.viable();
-            accent = can ? TEXT_GOOD : TEXT_BAD;
-            verdict = name(answer.type()).toUpperCase(Locale.ROOT)
-                + (can ? " CAN SPAWN HERE" : " CANNOT SPAWN HERE");
-            RuleResult blocker = answer.blocker().orElse(null);
-            if (blocker == null) {
-                detail = wrap("Every gate passes for this mob at this position.", textWidth, 2);
-            } else {
-                // Situational blockers get their own colour: the spot is fine, the
-                // moment is not, and those call for completely different actions.
-                if (!blocker.rule().standing()) {
-                    accent = TEXT_WARN;
-                    verdict = name(answer.type()).toUpperCase(Locale.ROOT) + " IS BLOCKED RIGHT NOW";
-                }
-                detail = wrap(blocker.rule().title() + ": " + blocker.summary(), textWidth, 2);
-                remedy = blocker.effectiveRemedy();
-            }
+            // Rendering only. The verdict itself is resolved in SpawnVerdict, where
+            // it spans both halves of the pipeline and can be tested - computing it
+            // here is how the banner once contradicted the section beneath it.
+            SpawnVerdict resolved = SpawnVerdict.of(this.position, answer);
+            String mob = name(answer.type()).toUpperCase(Locale.ROOT);
+
+            // A switch expression rather than a statement, so the compiler enforces
+            // that every tone produces a complete banner.
+            record Banner(int accent, String verdict, List<String> detail, @Nullable String remedy) {}
+            Banner banner = switch (resolved.tone()) {
+                case CAN_SPAWN -> new Banner(TEXT_GOOD, mob + " CAN SPAWN HERE",
+                    wrap("Every gate passes, at this position and in this world right now.", textWidth, 2),
+                    null);
+                case BLOCKED_NOW -> new Banner(TEXT_WARN, mob + " IS BLOCKED RIGHT NOW",
+                    wrap(describe(resolved), textWidth, 2), remedyOf(resolved));
+                case BLOCKED_ALWAYS -> new Banner(TEXT_BAD, mob + " CANNOT SPAWN HERE",
+                    wrap(describe(resolved), textWidth, 2), remedyOf(resolved));
+            };
+
+            accent = banner.accent();
+            verdict = banner.verdict();
+            detail = banner.detail();
+            remedy = banner.remedy();
         }
 
         gui.fill(this.left, y, this.left + 2, y + BANNER_HEIGHT, accent);

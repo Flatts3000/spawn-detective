@@ -1,9 +1,14 @@
 {
   "item.spawndoctor.spawn_probe": "Spawn Probe",
 
-  "spawndoctor.anchor.set": "Anchored %s",
-  "spawndoctor.anchor.cleared": "Anchor cleared",
-  "spawndoctor.anchor.none": "No block anchored yet - sneak-right-click the block you want to check.",
+  "spawndoctor.anchor.set": "Anchored %s. Walk 25 blocks away, then right-click to read it.",
+  "spawndoctor.anchor.cleared": "Anchor cleared.",
+  "spawndoctor.anchor.none": "Nothing anchored yet. Sneak-right-click the block you want to check, then walk 25 blocks away and right-click again.",
+  "spawndoctor.anchor.elsewhere": "The anchored block is in %s. Sneak-right-click a block here to move it.",
+
+  "spawndoctor.probe.tip.anchor": "Sneak-right-click a block to anchor it",
+  "spawndoctor.probe.tip.anchored": "Anchored %s",
+  "spawndoctor.probe.tip.read": "Right-click to read, sneak in the air to clear",
 
   "spawndoctor.jei.probe.what": "Tells you why a mob won't spawn on a block. Light, the floor, the mob cap, another mod blocking it: it checks the same rules the game does and names the one that stopped it.",
   "spawndoctor.jei.probe.anchor": "Sneak-right-click the block you want to check, then walk 25 blocks away. Nothing spawns within 24 blocks of a player, and your own body takes up the space a mob needs.",

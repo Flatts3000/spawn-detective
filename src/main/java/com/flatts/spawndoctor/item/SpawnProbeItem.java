@@ -17,6 +17,8 @@ import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.component.TooltipDisplay;
+import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.Level;
 import net.neoforged.neoforge.network.PacketDistributor;
@@ -26,10 +28,9 @@ import net.neoforged.neoforge.network.PacketDistributor;
  *
  * <p>The two-step gesture exists because of a measurement problem. To point at a
  * block you must stand beside it, and standing there breaks two real spawn rules -
- * the 24-block player bubble, and the obstruction check, since your own hitbox
- * occupies the space a mob would need. An earlier version papered over that by
- * auditing "as if you had stepped away", which made the headline an assumption
- * rather than a measurement.
+ * the 24-block player bubble, and the obstruction check, since your own body
+ * occupies the space a mob needs. An earlier version papered over that by auditing
+ * "as if you had stepped away", which made every headline an assumption.
  *
  * <p>Anchoring fixes it honestly: mark the block, walk off, and the reading is
  * taken with you genuinely at a distance. Nothing is discounted. If you are still
@@ -44,7 +45,14 @@ public class SpawnProbeItem extends Item {
 
     /**
      * Sneak-right-click a block: anchor the space above it, where a mob would stand.
-     * Plain right-click: read the anchor, or this block if nothing is anchored yet.
+     * Plain right-click: read the anchor.
+     *
+     * <p>With nothing anchored, a plain click asks you to anchor rather than quietly
+     * reading whatever you clicked. That fallback existed and was worse than
+     * useless: it produced a real report about a block you had not chosen, standing
+     * right next to it, which is exactly the reading the anchor gesture exists to
+     * avoid. One gesture doing two different things silently is how a tool teaches
+     * people to distrust it.
      */
     @Override
     public InteractionResult useOn(UseOnContext context) {
@@ -61,19 +69,12 @@ public class SpawnProbeItem extends Item {
 
         if (context.isSecondaryUseActive()) {
             stack.set(SDDataComponents.anchor(), new GlobalPos(level.dimension(), clicked));
-            player.sendSystemMessage(Component.literal("Anchored " + clicked.toShortString())
-                .withStyle(ChatFormatting.AQUA)
-                .append(Component.literal(" - walk 25+ blocks away, then right-click to read it")
-                    .withStyle(ChatFormatting.GRAY)));
+            player.sendSystemMessage(Component.translatable("spawndoctor.anchor.set", clicked.toShortString())
+                .withStyle(ChatFormatting.AQUA));
             return InteractionResult.SUCCESS;
         }
 
-        GlobalPos anchor = stack.get(SDDataComponents.anchor());
-        if (anchor == null) {
-            open(level, player, clicked);
-        } else {
-            openAnchored(level, player, anchor);
-        }
+        read(level, player, stack);
         return InteractionResult.SUCCESS;
     }
 
@@ -94,29 +95,28 @@ public class SpawnProbeItem extends Item {
             if (stack.has(SDDataComponents.anchor())) {
                 stack.remove(SDDataComponents.anchor());
                 serverPlayer.sendSystemMessage(
-                    Component.literal("Anchor cleared").withStyle(ChatFormatting.GRAY));
+                    Component.translatable("spawndoctor.anchor.cleared").withStyle(ChatFormatting.GRAY));
             }
             return InteractionResult.SUCCESS;
         }
 
-        GlobalPos anchor = stack.get(SDDataComponents.anchor());
-        if (anchor == null) {
-            serverPlayer.sendSystemMessage(Component.literal(
-                    "No block anchored yet - sneak-right-click the block you want to check.")
-                .withStyle(ChatFormatting.YELLOW));
-            return InteractionResult.SUCCESS;
-        }
-        openAnchored(serverLevel, serverPlayer, anchor);
+        read(serverLevel, serverPlayer, stack);
         return InteractionResult.SUCCESS;
     }
 
-    private static void openAnchored(ServerLevel level, ServerPlayer player, GlobalPos anchor) {
+    /** Read the anchored block, or explain how to anchor one. */
+    private static void read(ServerLevel level, ServerPlayer player, ItemStack stack) {
+        GlobalPos anchor = stack.get(SDDataComponents.anchor());
+        if (anchor == null) {
+            player.sendSystemMessage(
+                Component.translatable("spawndoctor.anchor.none").withStyle(ChatFormatting.YELLOW));
+            return;
+        }
         // Coordinates mean different things in different dimensions, and auditing the
         // same numbers in the wrong one would be a confident wrong answer.
         if (!anchor.dimension().equals(level.dimension())) {
-            player.sendSystemMessage(Component.literal("That anchor is in "
-                    + anchor.dimension().identifier() + " - sneak-right-click a block here to move it.")
-                .withStyle(ChatFormatting.YELLOW));
+            player.sendSystemMessage(Component.translatable("spawndoctor.anchor.elsewhere",
+                anchor.dimension().identifier().toString()).withStyle(ChatFormatting.YELLOW));
             return;
         }
         open(level, player, anchor.pos());
@@ -131,6 +131,27 @@ public class SpawnProbeItem extends Item {
     private static void open(ServerLevel level, ServerPlayer player, BlockPos pos) {
         PacketDistributor.sendToPlayer(player,
             new ShowPositionPayload(SpawnAuditor.auditPosition(level, pos)));
+    }
+
+    /**
+     * The gesture, on the item itself.
+     *
+     * <p>A two-step gesture that is only explained in chat is a two-step gesture
+     * people get wrong. The tooltip is where they look first.
+     */
+    @Override
+    public void appendHoverText(
+        ItemStack stack, TooltipContext context, TooltipDisplay display,
+        Consumer<Component> lines, TooltipFlag flag
+    ) {
+        GlobalPos anchor = stack.get(SDDataComponents.anchor());
+        if (anchor == null) {
+            lines.accept(Component.translatable("spawndoctor.probe.tip.anchor").withStyle(ChatFormatting.GRAY));
+            return;
+        }
+        lines.accept(Component.translatable("spawndoctor.probe.tip.anchored", anchor.pos().toShortString())
+            .withStyle(ChatFormatting.AQUA));
+        lines.accept(Component.translatable("spawndoctor.probe.tip.read").withStyle(ChatFormatting.DARK_GRAY));
     }
 
     /**

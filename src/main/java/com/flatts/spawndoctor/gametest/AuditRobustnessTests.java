@@ -43,6 +43,52 @@ final class AuditRobustnessTests {
         SDGameTests.test("headline_always_answers", 1, AuditRobustnessTests::headlineAlwaysAnswers);
         SDGameTests.test("verdict_never_contradicts_evidence", 1,
             AuditRobustnessTests::verdictNeverContradictsEvidence);
+        SDGameTests.test("no_blame_without_a_culprit", 1, AuditRobustnessTests::noBlameWithoutACulprit);
+    }
+
+    /**
+     * Never accuse a mod of something no mod did.
+     *
+     * <p>Third instance of one mistake, so it gets a test naming the pattern rather
+     * than the symptom. The report told a player a mod was blocking spiders in an
+     * instance whose only other mods were Jade and JEI. The reasoning was: our
+     * obstruction check passed, our rules check passed, vanilla still refused, so a
+     * mod must have done it. The real gap was that our obstruction check and
+     * vanilla's used different entity predicates.
+     *
+     * <p>Same shape as blaming sky access for a cave: rule out the causes you can
+     * measure, then pin the remainder on a suspect you never observed. A cause has to
+     * be measured, and mod interference is measurable - vanilla's own halves are
+     * callable, so a mod is only implicated when the actual result disagrees with
+     * what vanilla alone would have decided.
+     *
+     * <p>This suite runs with no spawn-affecting mods loaded, so nothing may ever be
+     * attributed to one.
+     */
+    private static void noBlameWithoutACulprit(GameTestHelper helper) {
+        BlockPos pos = helper.absolutePos(new BlockPos(1, 2, 1));
+
+        List<String> accused = new ArrayList<>();
+        for (EntityType<?> type : BuiltInRegistries.ENTITY_TYPE) {
+            if (type.getCategory() == MobCategory.MISC) {
+                continue;
+            }
+            AuditReport.Candidate candidate = SpawnAuditor.auditType(helper.getLevel(), pos, type);
+            candidate.rules().stream()
+                .filter(r -> r.rule() == com.flatts.spawndoctor.audit.SpawnRule.POSITION_CHECK)
+                .filter(r -> r.value().toLowerCase().contains("mod"))
+                .filter(r -> r.verdict().blocks())
+                .findFirst()
+                .ifPresent(r -> accused.add(
+                    BuiltInRegistries.ENTITY_TYPE.getKey(type).getPath() + " -> " + r.value()));
+        }
+
+        if (!accused.isEmpty()) {
+            throw fail(helper, "blamed a mod with none loaded, for "
+                + accused.size() + " type(s): "
+                + String.join(", ", accused.subList(0, Math.min(3, accused.size()))));
+        }
+        helper.succeed();
     }
 
     /**

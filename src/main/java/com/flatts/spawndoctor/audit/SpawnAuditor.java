@@ -802,72 +802,108 @@ public final class SpawnAuditor {
 
         try {
             mob.snapTo(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5, 0.0F, 0.0F);
-            AABB box = mob.getBoundingBox();
 
-            RuleResult obstruction = auditObstruction(level, mob, box);
-            boolean spaceClear = obstruction.verdict().permits();
-
-            boolean accepted;
+            // Vanilla's own halves, called directly. EventHooks.checkSpawnPosition
+            // falls back to exactly this pair when no mod overrides the result, so
+            // comparing the two is how a mod's involvement becomes measurable rather
+            // than assumed.
+            boolean mobRules;
+            boolean unobstructed;
             try {
-                accepted = EventHooks.checkSpawnPosition(mob, level, EntitySpawnReason.NATURAL);
+                mobRules = mob.checkSpawnRules(level, EntitySpawnReason.NATURAL);
+                unobstructed = mob.checkSpawnObstruction(level);
             } catch (Throwable t) {
-                return List.of(obstruction,
+                return List.of(
+                    RuleResult.unknown(SpawnRule.SPAWN_OBSTRUCTED, "this mob's own checks threw: " + t),
+                    RuleResult.unknown(SpawnRule.POSITION_CHECK, "not reached"));
+            }
+
+            boolean vanillaWould = mobRules && unobstructed;
+            boolean actual;
+            try {
+                actual = EventHooks.checkSpawnPosition(mob, level, EntitySpawnReason.NATURAL);
+            } catch (Throwable t) {
+                return List.of(
+                    describeObstruction(level, mob, unobstructed),
                     RuleResult.unknown(SpawnRule.POSITION_CHECK, "the position check threw: " + t));
             }
 
-            if (accepted) {
-                return List.of(obstruction, RuleResult.pass(SpawnRule.POSITION_CHECK, "accepted", "accepted"));
+            RuleResult obstruction = describeObstruction(level, mob, unobstructed);
+
+            if (actual != vanillaWould) {
+                // Measured, not deduced: something changed vanilla's answer, and the
+                // only thing that can is a PositionCheck handler.
+                return List.of(obstruction, actual
+                    ? RuleResult.pass(SpawnRule.POSITION_CHECK, "allowed by a mod",
+                        "vanilla would have refused here; a mod's spawn rules allow it")
+                    : RuleResult.fail(SpawnRule.POSITION_CHECK, "vetoed by a mod",
+                        "vanilla would have allowed this spawn; a mod's spawn rules refuse it",
+                        "A mod is blocking spawns here. Check spawn-control mods such as In Control, "
+                            + "or a pack's region rules."));
             }
 
-            // Rejected. If the space is not clear, that already explains it - saying
-            // so twice would double-count one cause and imply a mod is involved.
-            if (!spaceClear) {
-                return List.of(obstruction,
-                    RuleResult.skipped(SpawnRule.POSITION_CHECK,
-                        "not reached - the space is obstructed, which explains the rejection"));
-            }
-
-            if (!mob.checkSpawnRules(level, EntitySpawnReason.NATURAL)) {
+            // No mod involved. Whichever vanilla half failed is the whole story, and
+            // the obstruction row already carries its half.
+            if (!mobRules) {
                 return List.of(obstruction,
                     RuleResult.fail(SpawnRule.POSITION_CHECK, "mob refused",
                         "this mob's own extra spawn condition rejected the position",
-                        "This mob has a condition beyond the standard rules - slimes need the right "
+                        "This mob asks for something beyond the standard rules - slimes want the right "
                             + "chunk or depth, for example."));
             }
-
             return List.of(obstruction,
-                RuleResult.fail(SpawnRule.POSITION_CHECK, "vetoed by a mod",
-                    "the space is clear and the mob accepts it, so another mod's PositionCheck "
-                        + "handler is rejecting this spawn",
-                    "A mod is blocking spawns here. Check spawn-control mods such as In Control, "
-                        + "or a pack's region rules."));
+                RuleResult.pass(SpawnRule.POSITION_CHECK, "no mod objects",
+                    "no mod changed vanilla's answer here"));
         } finally {
             mob.discard();
         }
     }
 
     /**
-     * {@code Mob.checkSpawnObstruction}, measured directly so the answer names what
-     * is in the way. The observer is excluded - see {@link #audit}.
+     * Explain {@code Mob.checkSpawnObstruction}, taking vanilla's verdict as the
+     * authority and only using our own queries to name what is in the way.
+     *
+     * <p>The verdict has to come from vanilla. Deciding it here with a slightly
+     * different entity predicate is what produced "space is clear" beside a spawn
+     * vanilla had refused, and then a mod took the blame for the gap.
      */
-    private static RuleResult auditObstruction(ServerLevel level, Mob mob, AABB box) {
+    private static RuleResult describeObstruction(ServerLevel level, Mob mob, boolean unobstructed) {
+        if (unobstructed) {
+            return RuleResult.pass(SpawnRule.SPAWN_OBSTRUCTED, "clear", "nothing is in this space");
+        }
+
+        AABB box = mob.getBoundingBox();
         if (level.containsAnyLiquid(box)) {
             return RuleResult.fail(SpawnRule.SPAWN_OBSTRUCTED, "flooded",
                 "the mob's body would be inside a liquid here",
                 "Drain or cover this space to make it spawnable.");
         }
 
-        List<Entity> blockers = level.getEntities(mob, box, other -> other.canBeCollidedWith(null));
-        if (!blockers.isEmpty()) {
-            String who = blockers.getFirst().getName().getString();
+        List<Entity> present = level.getEntities(mob, box, e -> true);
+        Player player = present.stream()
+            .filter(Player.class::isInstance)
+            .map(Player.class::cast)
+            .findFirst()
+            .orElse(null);
+        if (player != null) {
+            // Overwhelmingly the common case, and the one the anchor gesture exists
+            // to solve: you cannot stand in a spawn space and measure it at once.
+            return RuleResult.fail(SpawnRule.SPAWN_OBSTRUCTED, "you are standing here",
+                player.getName().getString() + " is standing in the space the mob needs",
+                "Anchor this block with sneak-right-click, walk 25 blocks away, then read it again.");
+        }
+        if (!present.isEmpty()) {
+            String who = present.getFirst().getName().getString();
             return RuleResult.fail(SpawnRule.SPAWN_OBSTRUCTED, "occupied by " + who,
-                blockers.size() == 1
+                present.size() == 1
                     ? who + " is standing in this space"
-                    : blockers.size() + " entities are standing in this space, including " + who,
+                    : present.size() + " entities are in this space, including " + who,
                 "Move whatever is standing here - a spawn needs the space to itself.");
         }
 
-        return RuleResult.pass(SpawnRule.SPAWN_OBSTRUCTED, "clear", "nothing is standing in this space");
+        return RuleResult.fail(SpawnRule.SPAWN_OBSTRUCTED, "obstructed",
+            "vanilla reports this space as obstructed, though nothing is visibly in it",
+            null);
     }
 
     // ---------------------------------------------------------------- helpers

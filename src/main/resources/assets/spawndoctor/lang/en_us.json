@@ -5,10 +5,10 @@
   "spawndoctor.anchor.cleared": "Anchor cleared",
   "spawndoctor.anchor.none": "No block anchored yet - sneak-right-click the block you want to check.",
 
-  "spawndoctor.jei.probe.what": "Answers one question: would this mob spawn at this block? It replays Minecraft's real spawn pipeline and names the rule that rejected it.",
-  "spawndoctor.jei.probe.anchor": "Sneak-right-click a block to anchor it. You have to stand next to a block to point at it, and standing there blocks spawns by itself - so anchor, then walk away.",
-  "spawndoctor.jei.probe.read": "Right-click anywhere to read the anchored block. Pick a mob by name; the choice sticks, so checking a whole room costs one selection.",
-  "spawndoctor.jei.probe.why": "Green means it can spawn. Red means it never will here. Yellow means only something temporary is stopping it - a full mob cap, or you standing too close.",
+  "spawndoctor.jei.probe.what": "Tells you why a mob won't spawn on a block. Light, the floor, the mob cap, another mod blocking it: it checks the same rules the game does and names the one that stopped it.",
+  "spawndoctor.jei.probe.anchor": "Sneak-right-click the block you want to check, then walk 25 blocks away. Nothing spawns within 24 blocks of a player, and your own body takes up the space a mob needs.",
+  "spawndoctor.jei.probe.read": "Right-click anywhere to read it. Search for a mob or pick one off the list. It remembers your pick between blocks.",
+  "spawndoctor.jei.probe.why": "Green: it spawns here. Red: it never will. Yellow: something temporary is stopping it, like a full mob cap or you standing too close.",
 
   "config.jade.plugin_spawndoctor.spawn_check": "Spawn Doctor: selected mob"
 }

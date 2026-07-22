@@ -1,0 +1,22 @@
+{
+  "neoforge:conditions": [
+    {
+      "type": "spawndoctor:config_enabled",
+      "config": "crafting"
+    }
+  ],
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "S",
+    "I"
+  ],
+  "key": {
+    "S": "#minecraft:saplings",
+    "I": "minecraft:stick"
+  },
+  "result": {
+    "id": "spawndoctor:spawn_probe",
+    "count": 1
+  }
+}

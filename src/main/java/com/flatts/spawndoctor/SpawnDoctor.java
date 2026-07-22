@@ -3,11 +3,13 @@ package com.flatts.spawndoctor;
 import com.flatts.spawndoctor.event.SDModBusEvents;
 import com.flatts.spawndoctor.gametest.SDGameTests;
 import com.flatts.spawndoctor.network.SDPayloads;
+import com.flatts.spawndoctor.registry.SDConditions;
 import com.flatts.spawndoctor.registry.SDDataComponents;
 import com.flatts.spawndoctor.registry.SDItems;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
+import net.neoforged.fml.config.ModConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -28,9 +30,14 @@ public final class SpawnDoctor {
 
     public SpawnDoctor(IEventBus modEventBus, ModContainer modContainer) {
         SDDataComponents.register(modEventBus);
+        SDConditions.register(modEventBus);
         SDItems.register(modEventBus);
         modEventBus.addListener(SDModBusEvents::onBuildCreativeTabs);
         modEventBus.addListener(SDPayloads::register);
         SDGameTests.register(modEventBus);
+
+        // COMMON, not SERVER: datapack conditions are evaluated during datapack
+        // load, and the recipe gate reads this.
+        modContainer.registerConfig(ModConfig.Type.COMMON, SDConfig.SPEC);
     }
 }

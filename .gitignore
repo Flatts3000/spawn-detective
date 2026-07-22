@@ -1,0 +1,54 @@
+# Build artifacts
+build/
+.gradle/
+out/
+bin/
+*.class
+*.jar
+!gradle/wrapper/gradle-wrapper.jar
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.eclipse/
+*.launch
+.settings/
+.project
+.classpath
+
+# NeoForge dev runs
+run/
+runs/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+*.swo
+
+# Logs
+*.log
+logs/
+hs_err_*.log
+
+# Python tooling caches (scripts/)
+__pycache__/
+*.pyc
+.ruff_cache/
+
+# Local environment / secrets
+.env
+.env.local
+*.local.properties
+
+# Generated docs (if any tooling auto-generates)
+docs/CODEMAPS/
+
+# Texture candidate scratch space (raw 1024s, previews, prompt metadata,
+# generator scripts, comparison HTML). Selected candidates get copied into
+# assets/ explicitly.
+gen/
+build_errors.txt
+.claude/

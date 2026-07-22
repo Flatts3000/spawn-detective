@@ -1,0 +1,29 @@
+# Default to auto line endings
+* text=auto
+
+# Source files — always LF
+*.java text eol=lf
+*.gradle text eol=lf
+*.properties text eol=lf
+*.toml text eol=lf
+*.json text eol=lf
+*.mcmeta text eol=lf
+*.md text eol=lf
+*.sh text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+
+# Windows-specific files — always CRLF
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Gradle wrapper scripts
+gradlew text eol=lf
+gradlew.bat text eol=crlf
+
+# Binary files
+*.jar binary
+*.png binary
+*.ogg binary
+*.ico binary
+*.zip binary

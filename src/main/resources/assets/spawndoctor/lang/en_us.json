@@ -1,0 +1,4 @@
+{
+  "item.spawndoctor.spawn_probe": "Spawn Probe",
+  "item.spawndoctor.spawn_probe.tooltip": "Right-click a block: audit the space above it. Sneak-right-click: audit the block itself."
+}

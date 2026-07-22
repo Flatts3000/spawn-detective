@@ -45,7 +45,7 @@ Practically this means:
 
 ## Common commands
 
-- **`./gradlew build`** - compile + JUnit. Required CI job.
+- **`./gradlew build`** - compile + the JUnit suite. Required CI job.
 - **`./gradlew runGameTestServer`** - the in-world suite. Separate required CI job;
   `build` does **not** invoke it. Run it before pushing any change to `audit/`.
 - **`./gradlew runClient`** - dev client. **The only way to verify the screen** -
@@ -54,6 +54,39 @@ Practically this means:
 - **`./gradlew prepareAllRuns`** - regenerate run VM-args after a `clean`.
 
 Run one in-world test: `runClient`, then `/test run spawndoctor:<test_name>`.
+Run one unit test: `./gradlew test --tests '*SpawnVerdictTest'`.
+
+## Testing
+
+Two suites, and the split is deliberate.
+
+**Unit (`src/test/java`, ~45)** - pure logic against records, milliseconds to run.
+`SpawnVerdictTest` is the largest because `SpawnVerdict` is where the report
+collapses to one answer, and that logic used to live in the renderer where nothing
+could reach it. `SpawnRuleTest` pins the enum as a contract: declaration order is
+pipeline order, and the persistence tagging is asserted against a list written out
+independently of the enum, because a test that derives its expectation from the code
+under test cannot fail. `StreamCodecRoundTripTest` matters more than it looks -
+codec bugs are silent, fields arrive shifted rather than missing, so the position
+test asserts dimension and biome separately since those two adjacent strings would
+swap without any decode error. `LangCompletenessTest` catches a missing translation
+key, which Minecraft renders as the raw key rather than throwing, always on the
+error path a confused player is already on.
+
+**In-world (`gametest/`, ~30)** - anything needing a real level: light propagation,
+block state, live spawn state, entity construction. `PlacementRuleTests` is one
+scenario per way a spot can be physically wrong; `WorldRuleTests` mutates live world
+state and **must restore it**, since a leaked gamerule rewrites the meaning of every
+test batched after it.
+
+Several tests are named for a misdiagnosis rather than a feature
+(`no_blame_without_a_culprit`, `attribution_is_stable`,
+`verdict_never_contradicts_evidence`). Those encode the shape of a mistake this mod
+has made more than once - claiming a cause by elimination - and are worth more than
+their coverage suggests. When one fails, read its javadoc before the assertion.
+
+A failing test is not automatically a bug in the code: two of these were written
+with bad isolation and the engine was right both times. Check which before fixing.
 
 ## Architecture
 

@@ -26,8 +26,36 @@ public final class MobSelection {
     private MobSelection() {
     }
 
+    /**
+     * The chosen mob, falling back to whatever the held probe remembers.
+     *
+     * <p>The item is the durable copy - the static field is just this session's
+     * cache - so a relog picks the selection back up instead of dropping the reader
+     * at "choose a mob" again.
+     */
     public static @Nullable EntityType<?> selected() {
+        if (selected == null) {
+            selected = fromHeldProbe();
+        }
         return selected;
+    }
+
+    private static @Nullable EntityType<?> fromHeldProbe() {
+        var player = net.minecraft.client.Minecraft.getInstance().player;
+        if (player == null) {
+            return null;
+        }
+        for (net.minecraft.world.InteractionHand hand : net.minecraft.world.InteractionHand.values()) {
+            net.minecraft.world.item.ItemStack held = player.getItemInHand(hand);
+            if (held.getItem() instanceof com.flatts.spawndoctor.item.SpawnProbeItem) {
+                EntityType<?> remembered =
+                    held.get(com.flatts.spawndoctor.registry.SDDataComponents.selectedMob());
+                if (remembered != null) {
+                    return remembered;
+                }
+            }
+        }
+        return null;
     }
 
     public static void select(EntityType<?> type) {

@@ -117,6 +117,30 @@ label's width (`drawPair`) or they paint over it; disclosure triangles are drawn
 with `fill` because the font's glyphs render as specks; and **widgets render after
 the panel background**, or they end up buried under it.
 
+### `integration/` - Jade and JEI, both soft
+
+**Jade** (`compileOnly` only - a `runtimeOnly` dep would double-load against a real
+install and trip the duplicate-modid check) shows the selected mob's verdict for the
+looked-at block. Three constraints, all load-bearing:
+
+1. It resolves through **`SpawnVerdict`, the same as the screen**. Two surfaces
+   disagreeing about one block is how a diagnostic loses its reader.
+2. `shouldRequestData` returns false unless the player holds a probe with a mob
+   selected. The audit is real server work on every look-at tick.
+3. Jade 26.1 forbids a data provider from also implementing a component provider -
+   register the server half through a single-interface delegate sharing the client
+   half's UID. And **every plugin UID needs a `config.jade.plugin_<modid>.<uid>`
+   lang key**, or the client resource reload fails.
+
+`scripts/fetch_dev_mods.py` drops Jade into `run/mods` for dev runs.
+
+**JEI** gets an ingredient info page and deliberately nothing else. This mod has no
+recipes; a recipe category would teach nobody anything.
+
+The selected mob rides on the item (`SDDataComponents.SELECTED_MOB`) rather than in
+client memory, because the server must read it off the held stack for Jade. That it
+also survives a relog is the point, not a side effect.
+
 ### Dist safety
 
 Client-only classes are reached only from `Dist.CLIENT` event subscribers or from

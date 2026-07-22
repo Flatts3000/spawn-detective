@@ -60,6 +60,13 @@ neoForge {
 }
 
 repositories {
+    // JEI - published by mezz to BlameJared's maven.
+    maven {
+        name = 'BlameJared'
+        url = 'https://maven.blamejared.com'
+    }
+    // Jade - served as the full jar via the Modrinth maven (compileOnly only; see
+    // the dependency note below). Scoped so it never shadows other groups.
     maven {
         name = 'Modrinth'
         url = 'https://api.modrinth.com/maven'
@@ -68,6 +75,19 @@ repositories {
 }
 
 dependencies {
+    // JEI - compileOnly API so the @JeiPlugin class compiles, runtimeOnly jar so dev
+    // sessions actually show the info page. This mod has no recipes; the plugin
+    // exists to document the item's gestures where people look for item help.
+    compileOnly "mezz.jei:jei-26.1.2-neoforge-api:29.6.2.38"
+    runtimeOnly "mezz.jei:jei-26.1.2-neoforge:29.6.2.38"
+
+    // Jade - compileOnly ONLY. Jade stays a manual run/mods drop-in at runtime;
+    // adding it runtimeOnly would double-load against the drop-in and trip
+    // NeoForge's duplicate-modid check. When Jade is present it discovers our
+    // plugin; when it is absent the class is simply never loaded.
+    // Modrinth gWlwZzoj = Jade 26.1.8+neoforge.
+    compileOnly "maven.modrinth:jade:gWlwZzoj"
+
     testImplementation platform('org.junit:junit-bom:5.11.4')
     testImplementation 'org.junit.jupiter:junit-jupiter'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'

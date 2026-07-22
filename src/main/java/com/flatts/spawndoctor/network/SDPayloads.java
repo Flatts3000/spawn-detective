@@ -62,9 +62,24 @@ public final class SDPayloads {
             if (player.distanceToSqr(pos.getX(), pos.getY(), pos.getZ()) > MAX_CENTER_DISTANCE_SQR) {
                 return;
             }
+            // Record the choice on the probe itself. Costs no extra packet - the
+            // request already tells us - and it is what lets the selection survive a
+            // relog and lets Jade read the mob off the held item.
+            rememberOnProbe(player, payload.entityType());
+
             AuditReport.Candidate candidate = SpawnAuditor.auditType(level, pos, payload.entityType());
             PacketDistributor.sendToPlayer(player, new MobAuditPayloads.Result(pos, candidate));
         });
+    }
+
+    /** Write the chosen mob onto whichever hand is holding a probe. */
+    private static void rememberOnProbe(ServerPlayer player, net.minecraft.world.entity.EntityType<?> type) {
+        for (net.minecraft.world.InteractionHand hand : net.minecraft.world.InteractionHand.values()) {
+            net.minecraft.world.item.ItemStack held = player.getItemInHand(hand);
+            if (held.getItem() instanceof com.flatts.spawndoctor.item.SpawnProbeItem) {
+                held.set(com.flatts.spawndoctor.registry.SDDataComponents.selectedMob(), type);
+            }
+        }
     }
 
     private static void onMobAuditResult(MobAuditPayloads.Result payload, IPayloadContext context) {

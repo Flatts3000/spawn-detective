@@ -44,6 +44,25 @@ The selection sticks, so checking twenty blocks for zombies costs one choice rat
 than twenty. Below the banner, **Why** lists that mob's full walk through every
 gate, with the measurement behind each verdict.
 
+## Jade and JEI
+
+**Jade** is where this mod is at its best passively. Hold the probe with a mob
+selected and look at any block: the tooltip shows that mob's verdict for the space
+above it, live, as you sweep a room. Note the colours are inverted from the screen's
+- in a look-at tooltip you are spawn-proofing, so `can spawn` is **red** and
+`cannot spawn` is **green**.
+
+Both surfaces resolve through the same `SpawnVerdict`, so they cannot disagree about
+a block. The audit only runs while you are holding a probe with a mob chosen; nobody
+else pays for it.
+
+Jade is a soft dependency and a manual install. For a dev session,
+`python scripts/fetch_dev_mods.py` places it into `run/mods`.
+
+**JEI** gets an info page for the probe and nothing else. There are no recipes or
+machines here, so a recipe category would be theatre - but JEI is where people look
+when they find an unfamiliar item, so the page explains the gesture.
+
 ## The command
 
 ```

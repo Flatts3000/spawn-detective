@@ -1,10 +1,12 @@
 package com.flatts.spawndoctor.registry;
 
 import com.flatts.spawndoctor.SpawnDoctor;
-import com.mojang.serialization.Codec;
 import net.minecraft.core.GlobalPos;
 import net.minecraft.core.component.DataComponentType;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
+import net.minecraft.network.codec.ByteBufCodecs;
+import net.minecraft.world.entity.EntityType;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.neoforge.registries.DeferredHolder;
 import net.neoforged.neoforge.registries.DeferredRegister;
@@ -34,6 +36,20 @@ public final class SDDataComponents {
             .networkSynchronized(GlobalPos.STREAM_CODEC)
             .build());
 
+    /**
+     * The mob the holder last asked about.
+     *
+     * <p>On the stack rather than in client memory for two reasons: it survives a
+     * relog, which is what "remember my selection" has to mean to be worth having;
+     * and the server can read it off the held item, which is the only way Jade can
+     * show that mob's verdict for whatever block you are looking at.
+     */
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<EntityType<?>>> SELECTED_MOB =
+        COMPONENTS.register("selected_mob", () -> DataComponentType.<EntityType<?>>builder()
+            .persistent(BuiltInRegistries.ENTITY_TYPE.byNameCodec())
+            .networkSynchronized(ByteBufCodecs.registry(Registries.ENTITY_TYPE))
+            .build());
+
     private SDDataComponents() {
     }
 
@@ -46,8 +62,7 @@ public final class SDDataComponents {
         return ANCHOR.get();
     }
 
-    /** Unused, but keeps the Codec import meaningful if the component grows fields. */
-    static Codec<GlobalPos> codec() {
-        return GlobalPos.CODEC;
+    public static DataComponentType<EntityType<?>> selectedMob() {
+        return SELECTED_MOB.get();
     }
 }

@@ -1,8 +1,8 @@
 blank_issues_enabled: false
 contact_links:
   - name: Questions & general discussion
-    url: https://github.com/Flatts3000/spawn-doctor/discussions
+    url: https://github.com/Flatts3000/spawn-detective/discussions
     about: For usage questions, "is this spot supposed to work" threads, or general chatter - please use Discussions rather than the issue tracker.
   - name: Security vulnerabilities
-    url: https://github.com/Flatts3000/spawn-doctor/security/advisories/new
+    url: https://github.com/Flatts3000/spawn-detective/security/advisories/new
     about: Report security issues privately via GitHub Security Advisories. Don't open a public issue.

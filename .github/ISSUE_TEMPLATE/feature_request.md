@@ -23,7 +23,7 @@ assignees: []
 
 ## Does it survive the correctness bar?
 
-<!-- Spawn Doctor's constraint is that every reported rule maps to a real vanilla
+<!-- Spawn Detective's constraint is that every reported rule maps to a real vanilla
      call site, and that it never claims a cause by elimination. A more specific
      answer is only worth having if it can be measured rather than inferred.
 

@@ -11,7 +11,7 @@ from pathlib import Path
 
 from PIL import Image
 
-OUT = Path(__file__).resolve().parents[1] / "src/main/resources/assets/spawndoctor/textures/item/spawn_probe.png"
+OUT = Path(__file__).resolve().parents[1] / "src/main/resources/assets/spawndetective/textures/item/spawn_probe.png"
 
 # Vanilla-adjacent palette: iron greys for the shaft, a cyan lens so the item
 # reads as "instrument" at a glance in a hotbar full of tools.

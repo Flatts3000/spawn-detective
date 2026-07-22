@@ -29,7 +29,7 @@ assignees: []
 
 - **Minecraft version:**
 - **NeoForge version:**
-- **Spawn Doctor version:**
+- **Spawn Detective version:**
 - **Other mods installed (or modpack name):**
 - **Single-player or dedicated server:**
 - **Installed on both sides?** <!-- The audit runs server-side and the report

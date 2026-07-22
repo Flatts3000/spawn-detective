@@ -4,7 +4,7 @@ Guidance for Claude Code when working in this repository.
 
 ## Project
 
-Spawn Doctor is a **single-purpose diagnostic mod**: it answers "why won't mobs
+Spawn Detective is a **single-purpose diagnostic mod**: it answers "why won't mobs
 spawn at this position?" definitively. Targets **NeoForge 26.1.2.76 on Minecraft
 26.1.2, Java 25** (`JavaLanguageVersion.of(25)`; on this machine set
 `JAVA_HOME="C:/Program Files/Java/jdk-25"` for every gradlew invocation).
@@ -53,7 +53,7 @@ Practically this means:
   found by looking, not by testing.
 - **`./gradlew prepareAllRuns`** - regenerate run VM-args after a `clean`.
 
-Run one in-world test: `runClient`, then `/test run spawndoctor:<test_name>`.
+Run one in-world test: `runClient`, then `/test run spawndetective:<test_name>`.
 Run one unit test: `./gradlew test --tests '*SpawnVerdictTest'`.
 
 ## Testing
@@ -96,7 +96,7 @@ with bad isolation and the engine was right both times. Check which before fixin
 world/chunk rules once, then a section per `MobCategory`, then a `Candidate` per
 mob type on that biome's spawn list. `SpawnAuditor.auditType(level, pos, type)`
 walks one specific type, skipping the biome list - that is what
-`/spawndoctor for <entity>` and the tests use.
+`/spawndetective for <entity>` and the tests use.
 
 `SpawnRule`'s **enum order is the pipeline order**; the report walks it top to
 bottom and the first `FAIL` is the headline. Adding a rule means inserting it at

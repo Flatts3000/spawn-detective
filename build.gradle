@@ -9,7 +9,7 @@ plugins {
 
 base {
     // MC version in the artifact name (Mekanism convention) so jars for different
-    // game versions are unmistakable: spawndoctor-26.1.2-0.1.0-alpha.1.jar
+    // game versions are unmistakable: spawndetective-26.1.2-0.1.0-alpha.1.jar
     archivesName = "${mod_id}-${minecraft_version}"
 }
 

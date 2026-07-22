@@ -55,7 +55,7 @@ jobs:
         if: success()
         uses: actions/upload-artifact@v7
         with:
-          name: spawn-doctor-${{ github.sha }}
+          name: spawn-detective-${{ github.sha }}
           path: build/libs/*.jar
           if-no-files-found: error
           retention-days: 14

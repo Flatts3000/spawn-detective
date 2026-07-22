@@ -25,8 +25,8 @@ mobs from any mod, including ones it has never heard of.
   shows that mob's verdict for the block you are looking at, live. Colours are
   inverted there: when you are spawn-proofing, a possible spawn is the bad news.
 - **JEI support.** An info page on the probe explaining the gesture.
-- **`/spawndoctor`** for the console and command blocks, including
-  `/spawndoctor for <entity>` to ask about one mob and a whole-position sweep.
+- **`/spawndetective`** for the console and command blocks, including
+  `/spawndetective for <entity>` to ask about one mob and a whole-position sweep.
 - **Config.** `crafting.enabled` turns the recipe off for packs that would rather
   hand the item out themselves.
 

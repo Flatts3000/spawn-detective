@@ -1,8 +1,8 @@
-# Spawn Doctor
+# Spawn Detective
 
 **Why won't this mob spawn here?** Anchor the block, walk away, pick the mob, read the answer.
 
-Spawn Doctor replays Minecraft's real natural-spawn pipeline against one block and
+Spawn Detective replays Minecraft's real natural-spawn pipeline against one block and
 one mob, and tells you which rule rejected it - the mob cap, the chunk not ticking,
 the biome's spawn list, the floor, the light level, the hitbox, the spawn-cost
 budget, or another mod's veto. It does not guess and it does not reimplement the
@@ -17,10 +17,10 @@ what it thinks the game does.
 
 **Download:** not yet published - the first alpha is being packaged. Until then,
 build from source (below) or take the jar from a green
-[CI run](https://github.com/Flatts3000/spawn-doctor/actions).
+[CI run](https://github.com/Flatts3000/spawn-detective/actions).
 
-**Reporting:** [issues](https://github.com/Flatts3000/spawn-doctor/issues) for bugs
-and wrong answers, [discussions](https://github.com/Flatts3000/spawn-doctor/discussions)
+**Reporting:** [issues](https://github.com/Flatts3000/spawn-detective/issues) for bugs
+and wrong answers, [discussions](https://github.com/Flatts3000/spawn-detective/discussions)
 for questions. **If it told you the wrong thing, please file it** - use the
 *Misdiagnosis* template. Being wrong is this mod's only real bug class, and one
 pinned-down wrong answer is worth more than any feature request.
@@ -76,10 +76,10 @@ when they find an unfamiliar item, so the page explains the gesture.
 ## The command
 
 ```
-/spawndoctor                        audit where you are standing
-/spawndoctor at <x y z>             audit a position
-/spawndoctor for <entity>           audit one mob type here
-/spawndoctor at <x y z> for <entity>
+/spawndetective                        audit where you are standing
+/spawndetective at <x y z>             audit a position
+/spawndetective for <entity>           audit one mob type here
+/spawndetective at <x y z> for <entity>
 ```
 
 Text output, so it also works from the server console and command blocks. Requires
@@ -138,7 +138,7 @@ release should be a deliberate act, and a pipeline that publishes on green will
 eventually publish something nobody meant to ship.
 
 The jar includes the in-world test suite (~60 KB). That is on purpose - a pack
-author who suspects this mod is misreporting can run `/test run spawndoctor:*`
+author who suspects this mod is misreporting can run `/test run spawndetective:*`
 inside their own pack, with their own mods loaded. For a mod whose entire value is
 being right, shipping its self-verification is worth the download size.
 

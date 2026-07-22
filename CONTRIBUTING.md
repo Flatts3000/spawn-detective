@@ -1,11 +1,11 @@
-# Contributing to Spawn Doctor
+# Contributing to Spawn Detective
 
 Thanks for your interest. This document covers how to file issues, what a good bug
 report looks like for a diagnostic mod, and what a pull request needs to land.
 
 ## The bar this mod is held to
 
-Spawn Doctor exists to answer one question correctly. **A diagnostic that is
+Spawn Detective exists to answer one question correctly. **A diagnostic that is
 confidently wrong is worse than no diagnostic**, because someone will spend an hour
 digging out a room based on what it told them. Every change is judged against that.
 
@@ -35,7 +35,7 @@ change to the rule set updates that file in the same PR.
 - **Feature ideas** - use the **Feature Request** template. Frame it as the question
   you wanted answered, not the UI you imagined.
 - **General questions** - use
-  [GitHub Discussions](https://github.com/Flatts3000/spawn-doctor/discussions)
+  [GitHub Discussions](https://github.com/Flatts3000/spawn-detective/discussions)
   rather than the issue tracker.
 
 Don't open issues for security vulnerabilities - see [SECURITY.md](./SECURITY.md).

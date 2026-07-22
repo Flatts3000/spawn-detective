@@ -1,0 +1,19 @@
+{
+  "item.spawndetective.spawn_probe": "Spawn Probe",
+
+  "spawndetective.anchor.set": "Anchored %s. Walk 25 blocks away, then right-click to read it.",
+  "spawndetective.anchor.cleared": "Anchor cleared.",
+  "spawndetective.anchor.none": "Nothing anchored yet. Sneak-right-click the block you want to check, then walk 25 blocks away and right-click again.",
+  "spawndetective.anchor.elsewhere": "The anchored block is in %s. Sneak-right-click a block here to move it.",
+
+  "spawndetective.probe.tip.anchor": "Sneak-right-click a block to anchor it",
+  "spawndetective.probe.tip.anchored": "Anchored %s",
+  "spawndetective.probe.tip.read": "Right-click to read, sneak in the air to clear",
+
+  "spawndetective.jei.probe.what": "Tells you why a mob won't spawn on a block. Light, the floor, the mob cap, another mod blocking it: it checks the same rules the game does and names the one that stopped it.",
+  "spawndetective.jei.probe.anchor": "Sneak-right-click the block you want to check, then walk 25 blocks away. Nothing spawns within 24 blocks of a player, and your own body takes up the space a mob needs.",
+  "spawndetective.jei.probe.read": "Right-click anywhere to read it. Search for a mob or pick one off the list. It remembers your pick between blocks.",
+  "spawndetective.jei.probe.why": "Green: it spawns here. Red: it never will. Yellow: something temporary is stopping it, like a full mob cap or you standing too close.",
+
+  "config.jade.plugin_spawndetective.spawn_check": "Spawn Detective: selected mob"
+}

@@ -1,6 +1,6 @@
 ---
 name: Misdiagnosis
-about: Spawn Doctor gave you the wrong answer, or no answer where it should have had one
+about: Spawn Detective gave you the wrong answer, or no answer where it should have had one
 title: "[Misdiagnosis] "
 labels: ["misdiagnosis"]
 assignees: []
@@ -56,10 +56,10 @@ assignees: []
 
 - **Minecraft version:**
 - **NeoForge version:**
-- **Spawn Doctor version:**
+- **Spawn Detective version:**
 - **Other mods installed (or modpack name and version):**
 - **Single-player or dedicated server:**
-- **Which surface:** <!-- report screen / Jade tooltip / /spawndoctor command -->
+- **Which surface:** <!-- report screen / Jade tooltip / /spawndetective command -->
 
 ## Did the surfaces agree?
 

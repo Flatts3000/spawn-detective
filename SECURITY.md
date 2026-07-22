@@ -2,16 +2,16 @@
 
 ## Supported Versions
 
-Spawn Doctor is pre-release; only the latest commit on `main` is supported. Once
+Spawn Detective is pre-release; only the latest commit on `main` is supported. Once
 stable releases are published, this section will be updated with a version table.
 
 ## Reporting a Vulnerability
 
-If you discover a security vulnerability in Spawn Doctor, **please do not open a
+If you discover a security vulnerability in Spawn Detective, **please do not open a
 public issue.** Use one of these private channels instead:
 
 1. **GitHub Security Advisories** (preferred): the repo's
-   [Security tab](https://github.com/Flatts3000/spawn-doctor/security/advisories/new).
+   [Security tab](https://github.com/Flatts3000/spawn-detective/security/advisories/new).
    This is the canonical channel and routes directly to the maintainer.
 2. **Direct contact**: message the maintainer via the GitHub profile at
    [@Flatts3000](https://github.com/Flatts3000).

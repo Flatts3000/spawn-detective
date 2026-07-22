@@ -22,7 +22,7 @@ Guardrails:
   - Links use absolute GitHub URLs (CF readers have no repo context)
 -->
 
-**Your mob farm is not spawning and you do not know why.** Spawn Doctor tells you. Anchor the block, walk away, pick a mob, and it names the rule that stopped it: the light level, the floor, the mob cap, the biome, your own hitbox, the spawn-cost budget, or another mod's veto.
+**Your mob farm is not spawning and you do not know why.** Spawn Detective tells you. Anchor the block, walk away, pick a mob, and it names the rule that stopped it: the light level, the floor, the mob cap, the biome, your own hitbox, the spawn-cost budget, or another mod's veto.
 
 It does not guess, and it does not reimplement Minecraft's rules. It runs the game's real spawn checks against that exact block and reports what they returned.
 
@@ -51,7 +51,7 @@ Under the verdict, **Why** lists the mob's full walk through every gate, with th
 
 ## It knows your pack's mobs
 
-Spawn Doctor asks the game rather than hardcoding what it thinks the game does, so it answers for mobs from mods it has never heard of. If a mod adds a mob with a custom spawn condition, the probe runs that mod's own check and reports the result.
+Spawn Detective asks the game rather than hardcoding what it thinks the game does, so it answers for mobs from mods it has never heard of. If a mod adds a mob with a custom spawn condition, the probe runs that mod's own check and reports the result.
 
 The same goes the other way. When another mod cancels a spawn through the standard events, the report says so instead of blaming a vanilla rule that was fine.
 
@@ -68,10 +68,10 @@ Both are optional and neither is bundled.
 ## From the console
 
 ```
-/spawndoctor                        check where you are standing
-/spawndoctor at <x y z>             check a position
-/spawndoctor for <entity>           check one mob here
-/spawndoctor at <x y z> for <entity>
+/spawndetective                        check where you are standing
+/spawndetective at <x y z>             check a position
+/spawndetective for <entity>           check one mob here
+/spawndetective at <x y z> for <entity>
 ```
 
 Text output, so it works from the server console and from command blocks. It needs gamemaster permission, because the report exposes server-wide mob cap state.
@@ -99,9 +99,9 @@ The limits it has, stated rather than hidden:
 
 ## Links
 
-* [GitHub repository](https://github.com/Flatts3000/spawn-doctor)
-* [Report a wrong answer or a bug](https://github.com/Flatts3000/spawn-doctor/issues)
-* [Version history](https://github.com/Flatts3000/spawn-doctor/blob/main/CHANGELOG.md)
+* [GitHub repository](https://github.com/Flatts3000/spawn-detective)
+* [Report a wrong answer or a bug](https://github.com/Flatts3000/spawn-detective/issues)
+* [Version history](https://github.com/Flatts3000/spawn-detective/blob/main/CHANGELOG.md)
 * [Community Discord](https://discord.gg/r6MhZ73nsM)
 
 NeoForge only. No Fabric port planned.

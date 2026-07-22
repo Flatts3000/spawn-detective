@@ -1,6 +1,6 @@
 # The spawn pipeline, and where each rule comes from
 
-This is the document that keeps the mod honest. Spawn Doctor's entire claim is
+This is the document that keeps the mod honest. Spawn Detective's entire claim is
 that its answers are the *real* rules, not a plausible reimplementation of them.
 That claim survives exactly as long as this table stays accurate.
 

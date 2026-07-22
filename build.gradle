@@ -1,6 +1,10 @@
 plugins {
     id 'java'
     id 'net.neoforged.moddev' version '2.0.141'
+    // CurseForgeGradle wraps the upload API so `./gradlew publishCurseForge` pushes
+    // a new file to the project page. Token comes from .env (gitignored), an env
+    // var, or a gradle property - never from this file.
+    id 'net.darkhax.curseforgegradle' version '1.2.30'
 }
 
 base {
@@ -160,4 +164,112 @@ tasks.register('prepareAllRuns') {
     dependsOn 'prepareClientRun',
               'prepareServerRun',
               'prepareGameTestServerRun'
+}
+
+// ---------------------------------------------------------------------------
+// Publishing
+//
+// `./gradlew publishCurseForge` after a successful build. Not run by CI - a
+// release is a deliberate act, and a pipeline that publishes on green will
+// eventually publish something nobody meant to ship.
+//
+// The API token is read from, in order: .env at the repo root (gitignored),
+// the CURSEFORGE_API_KEY environment variable, then the cfApiToken gradle
+// property. It is never committed.
+// ---------------------------------------------------------------------------
+
+/** Read a KEY=value file, ignoring blanks and comments. Returns empty if absent. */
+def readDotEnv(File envFile) {
+    def map = [:]
+    if (!envFile.exists()) {
+        return map
+    }
+    envFile.eachLine { line ->
+        def trimmed = line.trim()
+        if (!trimmed || trimmed.startsWith('#')) {
+            return
+        }
+        def eq = trimmed.indexOf('=')
+        if (eq <= 0) {
+            return
+        }
+        map[trimmed.substring(0, eq).trim()] = trimmed.substring(eq + 1).trim().replaceAll(/^["']|["']$/, '')
+    }
+    return map
+}
+
+def resolveCfApiToken() {
+    return readDotEnv(file("${rootDir}/.env"))['CURSEFORGE_API_KEY']
+        ?: System.getenv('CURSEFORGE_API_KEY')
+        ?: findProperty('cfApiToken')
+}
+
+/**
+ * Pull this version's section out of CHANGELOG.md - everything from `## v<version>`
+ * to the next `## v` heading. Keeps the shipped changelog and the repo's in step,
+ * because two changelogs that can disagree eventually will.
+ */
+def extractChangelogSection(File changelog, String version) {
+    if (!changelog.exists()) {
+        throw new GradleException("CHANGELOG.md is missing; a release needs one.")
+    }
+    def text = changelog.text
+    def marker = "## v${version}"
+    def start = text.indexOf(marker)
+    if (start < 0) {
+        throw new GradleException("CHANGELOG.md has no '${marker}' section. "
+            + "Add one before publishing, or the upload would carry the wrong notes.")
+    }
+    def end = text.indexOf("\n## v", start + marker.length())
+    return text.substring(start, end < 0 ? text.length() : end).trim()
+}
+
+// The project id only exists once the CurseForge page has been created, and
+// CurseForgeGradle resolves it while configuring the task - so registering
+// unconditionally breaks every Gradle invocation, including `build`, until then.
+// Register the real task when it is set, and a task that explains itself when it
+// is not.
+if (findProperty('curseForgeProjectId')) {
+    tasks.register('publishCurseForge', net.darkhax.curseforgegradle.TaskPublishCurseForge) {
+        group = 'publishing'
+        description = 'Upload the built jar to CurseForge.'
+        dependsOn tasks.named('build')
+
+        apiToken = resolveCfApiToken()
+
+        def primary = upload(findProperty('curseForgeProjectId'), tasks.jar.archiveFile)
+        // Alpha until it has been run somewhere that is not a dev environment.
+        primary.releaseType = 'alpha'
+        primary.addGameVersion(minecraft_version)
+        primary.addModLoader('NeoForge')
+        primary.addJavaVersion('Java 25')
+        // Both sides: the audit runs server-side and the screen renders client-side,
+        // so a client-only tag would have people installing it where it cannot work.
+        primary.addEnvironment('Client', 'Server')
+        // Declared optional so the page shows them as such rather than leaving
+        // people to guess whether they are required.
+        primary.addOptional('jade')
+        primary.addOptional('jei')
+        primary.changelog = extractChangelogSection(file("${rootDir}/CHANGELOG.md"), mod_version)
+        primary.changelogType = 'markdown'
+        primary.displayName = "${mod_name} ${mod_version}"
+
+        doFirst {
+            if (!apiToken) {
+                throw new GradleException("CURSEFORGE_API_KEY not set. Put it in .env at the repo root, "
+                    + "export it, or add cfApiToken to ~/.gradle/gradle.properties.")
+            }
+        }
+    }
+} else {
+    tasks.register('publishCurseForge') {
+        group = 'publishing'
+        description = 'Upload the built jar to CurseForge (needs curseForgeProjectId first).'
+        doFirst {
+            throw new GradleException('curseForgeProjectId is not set. To publish: '
+                + '(1) create the CurseForge project and copy its numeric id, '
+                + '(2) add curseForgeProjectId=<id> to gradle.properties, '
+                + '(3) put CURSEFORGE_API_KEY=<token> in .env at the repo root.')
+        }
+    }
 }

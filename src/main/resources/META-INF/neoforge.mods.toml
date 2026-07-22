@@ -8,6 +8,7 @@ version = "${mod_version}"
 displayName = "${mod_name}"
 displayURL = "https://github.com/Flatts3000/spawn-doctor"
 authors = "${mod_authors}"
+logoFile = "logo.png"
 description = '''${mod_description}'''
 
 [[dependencies.${mod_id}]]

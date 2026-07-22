@@ -52,3 +52,4 @@ docs/CODEMAPS/
 gen/
 build_errors.txt
 .claude/
+.env

@@ -57,6 +57,7 @@ public final class SDGameTests {
         AuditRobustnessTests.register();
         PlacementRuleTests.register();
         WorldRuleTests.register();
+        PerformanceTests.register();
 
         FUNCTIONS.register(modEventBus);
         modEventBus.addListener(SDGameTests::onRegisterGameTests);

@@ -75,6 +75,18 @@ when they find an unfamiliar item, so the page explains the gesture.
 Text output, so it also works from the server console and command blocks. Requires
 gamemaster permission, because the report exposes server-wide mob cap state.
 
+## Installing
+
+Drop the jar in `mods/`. Needs **NeoForge for Minecraft 26.1.2** and nothing else.
+
+Install it on **both sides**: the audit runs on the server (it reads live spawn
+state and fires the spawn events mods hook), and the report renders on the client.
+On a server without it, the probe does nothing.
+
+**Jade** and **JEI** are optional. With Jade, the look-at tooltip shows the selected
+mob's verdict live. With JEI, the probe gets an info page. Neither is required and
+neither is bundled.
+
 ## Building
 
 ```
@@ -101,6 +113,24 @@ every mob in your pack.
 
 Where a cause genuinely cannot be narrowed, the report says so and offers leads
 rather than picking one. A vague true answer beats a precise false one.
+
+## Releasing
+
+`./gradlew publishCurseForge` uploads the built jar. It needs two things that are
+deliberately not in the repo:
+
+- `curseForgeProjectId=<id>` in `gradle.properties`, once the project page exists
+- `CURSEFORGE_API_KEY=<token>` in `.env` at the repo root (gitignored)
+
+The changelog for the upload is pulled from this repo's `CHANGELOG.md` by matching
+`## v<version>`, so the two cannot drift apart. Publishing is not wired into CI: a
+release should be a deliberate act, and a pipeline that publishes on green will
+eventually publish something nobody meant to ship.
+
+The jar includes the in-world test suite (~60 KB). That is on purpose - a pack
+author who suspects this mod is misreporting can run `/test run spawndoctor:*`
+inside their own pack, with their own mods loaded. For a mod whose entire value is
+being right, shipping its self-verification is worth the download size.
 
 ## Licence
 

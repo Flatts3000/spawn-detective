@@ -182,6 +182,27 @@ clientbound payload handlers, which never run on a server. **Do not annotate the
 error for every mod still using it, which for a diagnostic mod means polluting the
 logs it exists to help people read.
 
+## Release
+
+`./gradlew publishCurseForge`. Needs `curseForgeProjectId` in `gradle.properties`
+and `CURSEFORGE_API_KEY` in `.env`; without the project id the task registers as a
+stub that says so, because CurseForgeGradle resolves the id at *configuration* time
+and registering it unconditionally breaks every Gradle invocation including `build`.
+
+The upload changelog is extracted from `CHANGELOG.md` by matching `## v<version>`,
+and the task **fails** if that section is missing rather than shipping empty notes.
+Add the section before bumping `mod_version`.
+
+Not in CI, deliberately: a release is a decision, and a pipeline that publishes on
+green eventually publishes something nobody meant to.
+
+Performance has budgets, not guesses. `PerformanceTests` logs the measured cost of
+every hot path on each run and fails past a generous ceiling. Current numbers: an
+`auditType` is ~80us, `auditPosition` ~40us, a full sweep ~2.4ms over 17 mobs. A
+server tick is 50,000us, so the Jade path costs well under 1% of one. **Measure
+before optimising this** - an earlier audit flagged it as a risk purely from
+counting predicate calls, and the measurement showed there was nothing to fix.
+
 ## Conventions
 
 - **Java 25, 4-space indent, no tabs, no wildcard imports.** Imports alphabetical,

@@ -613,8 +613,9 @@ public final class SpawnAuditor {
             return RuleResult.pass(SpawnRule.SPAWN_RULES, "pass", "passes every roll");
         }
 
-        Cause cause = attributeSpawnRuleFailure(level, pos, type, seeds);
-        String rate = natural == 0 ? "" : " (" + Math.round(100.0F * natural / total) + "% of rolls pass)";
+        Cause cause = attributeSpawnRuleFailure(level, pos, type, seeds, natural);
+        // Terse: this rides in a narrow table column beside the rule's name.
+        String rate = natural == 0 ? "" : " (" + Math.round(100.0F * natural / total) + "% of rolls)";
         String detail = natural == 0
             ? "fails every roll - " + cause.detail()
             : natural + " of " + total + " rolls pass - " + cause.detail();
@@ -642,7 +643,7 @@ public final class SpawnAuditor {
      * monsters have no sky requirement and every cave fails a naive sky test.
      */
     private static Cause attributeSpawnRuleFailure(
-        ServerLevel level, BlockPos pos, EntityType<?> type, long[] seeds
+        ServerLevel level, BlockPos pos, EntityType<?> type, long[] seeds, int natural
     ) {
         int asSpawner = sampleAcross(level, pos, type, EntitySpawnReason.SPAWNER, seeds);
         int asTrial = sampleAcross(level, pos, type, EntitySpawnReason.TRIAL_SPAWNER, seeds);
@@ -653,10 +654,16 @@ public final class SpawnAuditor {
                     + describeLight(level, pos), null);
         }
 
-        if (asSpawner > 0) {
-            // Exempting the spawner-only group fixed it. The floor is the one member
-            // of that group that can be checked directly, so it is the one member
-            // that may be named.
+        // An exemption identifies the cause by IMPROVING the rate, not by passing.
+        // Testing "does SPAWNER pass at all" blamed the floor group for a lit spider
+        // whose floor was fine: exempting the floor changed nothing, both sat at the
+        // same rate, and the branch fired anyway.
+        boolean floorGroupHelps = asSpawner > natural;
+        boolean lightHelps = asTrial > Math.max(natural, asSpawner);
+
+        if (floorGroupHelps) {
+            // The floor is the one member of that group that can be checked directly,
+            // so it is the one member that may be named.
             BlockPos below = pos.below();
             BlockState belowState = level.getBlockState(below);
             if (!belowState.isValidSpawn(level, below, type)) {
@@ -664,37 +671,28 @@ public final class SpawnAuditor {
                     "the floor. " + describeBlock(belowState) + " is not a valid spawn surface for this mob",
                     "Give this spot a full solid floor, or leave it as-is to keep it spawn-proof.");
             }
-
-            // Everything else in that group is opaque. Naming a specific member by
-            // elimination is how "drowned needs sky" happened, so the group is
-            // reported as a group, with its usual members offered as leads.
+            // Everything else in that group is opaque - naming a member by elimination
+            // is how "drowned need sky" happened - so the group is reported as a group.
             String leads = level.canSeeSky(pos)
-                ? "water for drowned, or a structure requirement"
-                : "sky access for husks, water for drowned, or a structure requirement";
-            return new Cause("spawner-only rule",
-                "a condition this mob lets spawners bypass but natural spawning cannot. The floor and "
-                    + "light here are both fine, so it is something else this mob asks for - commonly "
-                    + leads,
-                "This mob wants something this spot does not provide. A monster spawner would work here; "
-                    + "natural spawning will not.");
+                ? "water, or being inside a particular structure"
+                : "open sky, water, or being inside a particular structure";
+            return new Cause("needs something else",
+                "this mob asks for something a spawner would provide but this spot does not. The floor and "
+                    + "the light are both fine, so it is a condition of its own - commonly " + leads,
+                "A monster spawner would work here; natural spawning will not.");
         }
 
-        if (asTrial > 0) {
+        if (lightHelps) {
             return new Cause(lightValue(level, pos),
                 "light. " + describeLight(level, pos),
                 lightRemedy(level, pos));
         }
 
-        return new Cause("other rule",
-            "a rule other than light or floor - biome, height, weather, difficulty, or this mob's own "
+        return new Cause("another rule",
+            "neither light nor the floor - biome, height, weather, difficulty, or this mob's own "
                 + "condition. " + describeLight(level, pos), null);
     }
 
-    /**
-     * Roll the predicate {@link #SAMPLES} times, or return {@link #SAMPLE_THREW} if a
-     * mod's predicate raised. Reporting a partial count as if it were a measurement
-     * would turn a broken mod into a confident wrong answer.
-     */
     /** Sum {@link #sample} over every seed, propagating a throw as unmeasurable. */
     private static int sampleAcross(
         ServerLevel level, BlockPos pos, EntityType<?> type, EntitySpawnReason reason, long[] seeds
@@ -908,10 +906,17 @@ public final class SpawnAuditor {
 
     // ---------------------------------------------------------------- helpers
 
-    /** The terse light measurement for a table column. */
+    /**
+     * The terse light measurement for a table column.
+     *
+     * <p>Just the level, with no "needs N" attached. The monster light test is a
+     * roll, not a threshold - the overworld samples uniformly over 0-7 and spawns
+     * when the light is at or below the roll - so any single number presented as the
+     * requirement would be wrong. The sampled pass rate beside it carries the odds,
+     * and the full breakdown is one hover away.
+     */
     public static String lightValue(ServerLevel level, BlockPos pos) {
-        int max = level.getMaxLocalRawBrightness(pos);
-        return "light " + max + ", needs " + level.dimensionType().monsterSpawnBlockLightLimit();
+        return "light " + level.getMaxLocalRawBrightness(pos);
     }
 
     /**

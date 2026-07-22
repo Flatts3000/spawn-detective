@@ -55,6 +55,8 @@ public final class SDGameTests {
     public static void register(IEventBus modEventBus) {
         SpawnAuditTests.register();
         AuditRobustnessTests.register();
+        PlacementRuleTests.register();
+        WorldRuleTests.register();
 
         FUNCTIONS.register(modEventBus);
         modEventBus.addListener(SDGameTests::onRegisterGameTests);

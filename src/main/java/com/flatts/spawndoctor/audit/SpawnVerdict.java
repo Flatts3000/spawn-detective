@@ -1,5 +1,6 @@
 package com.flatts.spawndoctor.audit;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.stream.Stream;
 import org.jspecify.annotations.Nullable;
@@ -44,20 +45,32 @@ public record SpawnVerdict(Tone tone, @Nullable RuleResult blocker) {
      * the permanent one is the news.
      */
     public static SpawnVerdict of(PositionReport position, AuditReport.Candidate candidate) {
-        Optional<RuleResult> standing = firstBlocker(position, candidate, true);
+        return of(position.world(), candidate);
+    }
+
+    /**
+     * As above, from the world rules directly.
+     *
+     * <p>Both report shapes carry the same world-rule list, and both must reach the
+     * same verdict from it. Letting the command compute its own answer is how the
+     * aggregate report ended up printing a different, worse verdict than the screen
+     * for the same block.
+     */
+    public static SpawnVerdict of(List<RuleResult> world, AuditReport.Candidate candidate) {
+        Optional<RuleResult> standing = firstBlocker(world, candidate, true);
         if (standing.isPresent()) {
             return new SpawnVerdict(Tone.BLOCKED_ALWAYS, standing.get());
         }
-        Optional<RuleResult> situational = firstBlocker(position, candidate, false);
+        Optional<RuleResult> situational = firstBlocker(world, candidate, false);
         return situational
             .map(blocker -> new SpawnVerdict(Tone.BLOCKED_NOW, blocker))
             .orElseGet(() -> new SpawnVerdict(Tone.CAN_SPAWN, null));
     }
 
     private static Optional<RuleResult> firstBlocker(
-        PositionReport position, AuditReport.Candidate candidate, boolean standing
+        List<RuleResult> world, AuditReport.Candidate candidate, boolean standing
     ) {
-        return Stream.concat(position.world().stream(), candidate.rules().stream())
+        return Stream.concat(world.stream(), candidate.rules().stream())
             .filter(r -> r.verdict().blocks() && r.rule().standing() == standing)
             .findFirst();
     }

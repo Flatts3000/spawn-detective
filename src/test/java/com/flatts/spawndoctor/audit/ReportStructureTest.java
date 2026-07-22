@@ -144,38 +144,17 @@ class ReportStructureTest {
     }
 
     @Test
-    @DisplayName("the headline names a subject, not just a rule")
-    void headlineNamesItsSubject() {
-        // "The mob's own spawn rules - needs sky" told the reader nothing about which
-        // mob was meant.
+    @DisplayName("a sweep still reports which mobs are viable")
+    void sweepCountsViableMobs() {
+        // The aggregate headline is gone - it averaged findings into a claim true of
+        // none of them - but the sweep itself still has to answer "what can spawn
+        // here", one mob at a time.
         AuditReport report = new AuditReport("d", POS, "b", List.of(), List.of(
-            new AuditReport.Category(MobCategory.MONSTER, List.of(),
-                List.of(candidate(EntityType.ZOMBIE, fail(SpawnRule.PLACEMENT))))));
-
-        AuditReport.Headline headline = report.headline();
-        assertFalse(headline.canSpawn());
-        assertTrue(headline.detail().contains("zombie"),
-            "a cause with no subject is not actionable: " + headline.detail());
-    }
-
-    @Test
-    @DisplayName("only temporary blockers give the blocked-now tone")
-    void blockedNowTone() {
-        AuditReport report = new AuditReport("d", POS, "b", List.of(), List.of(
-            new AuditReport.Category(MobCategory.MONSTER, List.of(),
-                List.of(candidate(EntityType.ZOMBIE, fail(SpawnRule.CATEGORY_GLOBAL_CAP))))));
-
-        assertSame(AuditReport.Tone.BLOCKED_NOW, report.headline().tone());
-    }
-
-    @Test
-    @DisplayName("a clear report says so")
-    void clearReport() {
-        AuditReport report = new AuditReport("d", POS, "b", List.of(pass(SpawnRule.WORLD_BORDER)), List.of(
-            new AuditReport.Category(MobCategory.MONSTER, List.of(),
-                List.of(candidate(EntityType.ZOMBIE, pass(SpawnRule.PLACEMENT))))));
+            new AuditReport.Category(MobCategory.MONSTER, List.of(), List.of(
+                candidate(EntityType.ZOMBIE, pass(SpawnRule.PLACEMENT)),
+                candidate(EntityType.CREEPER, fail(SpawnRule.PLACEMENT))))));
 
         assertTrue(report.anythingCanSpawn());
-        assertSame(AuditReport.Tone.CAN_SPAWN, report.headline().tone());
+        assertEquals(1L, report.relevantCategories().getFirst().viableCount());
     }
 }

@@ -40,7 +40,7 @@ final class AuditRobustnessTests {
         SDGameTests.test("audit_survives_distant_unloaded_chunk", 1, AuditRobustnessTests::distantChunk);
         SDGameTests.test("audit_covers_every_spawning_category", 1, AuditRobustnessTests::everyCategory);
         SDGameTests.test("empty_categories_are_not_reported", 1, AuditRobustnessTests::emptyCategoriesHidden);
-        SDGameTests.test("headline_always_answers", 1, AuditRobustnessTests::headlineAlwaysAnswers);
+        SDGameTests.test("every_candidate_resolves", 1, AuditRobustnessTests::everyCandidateResolves);
         SDGameTests.test("verdict_never_contradicts_evidence", 1,
             AuditRobustnessTests::verdictNeverContradictsEvidence);
         SDGameTests.test("no_blame_without_a_culprit", 1, AuditRobustnessTests::noBlameWithoutACulprit);
@@ -171,29 +171,30 @@ final class AuditRobustnessTests {
     }
 
     /**
-     * There is always exactly one headline, and it always says something. The
-     * headline is the entire product - a blank or placeholder one means the player
-     * opened the screen and learned nothing.
+     * Every mob in a whole-position sweep resolves to a verdict, and a blocked one
+     * always names its blocker.
+     *
+     * <p>Replaces a test of the old aggregate headline, which averaged every mob the
+     * biome offered into one sentence and so produced claims true of none of them.
+     * The sweep survives because "what can spawn on this block" is a real question;
+     * the averaging did not.
      */
-    private static void headlineAlwaysAnswers(GameTestHelper helper) {
-        AuditReport report = SpawnAuditor.audit(helper.getLevel(), helper.absolutePos(new BlockPos(1, 2, 1)));
-        AuditReport.Headline headline = report.headline();
+    private static void everyCandidateResolves(GameTestHelper helper) {
+        BlockPos pos = helper.absolutePos(new BlockPos(1, 2, 1));
+        AuditReport report = SpawnAuditor.audit(helper.getLevel(), pos);
 
-        if (headline.verdict().isBlank()) {
-            throw fail(helper, "headline verdict is blank");
-        }
-        if (headline.detail().isBlank()) {
-            throw fail(helper, "headline detail is blank - no reason given");
-        }
-        // A cause with no subject is not actionable: "the mob's own spawn rules -
-        // needs sky" leaves the reader with no idea which mob is meant.
-        if (!report.relevantCategories().isEmpty() && !headline.canSpawn()
-            && !headline.detail().contains(" - ")) {
-            throw fail(helper, "headline names no subject: " + headline.detail());
-        }
-        if (headline.canSpawn() != report.anythingCanSpawn()) {
-            throw fail(helper, "headline disagrees with the report: headline says canSpawn="
-                + headline.canSpawn() + " but anythingCanSpawn=" + report.anythingCanSpawn());
+        for (AuditReport.Category category : report.relevantCategories()) {
+            for (AuditReport.Candidate candidate : category.candidates()) {
+                SpawnVerdict verdict = SpawnVerdict.of(report.world(), candidate);
+                if (!verdict.canSpawn() && verdict.blocker() == null) {
+                    throw fail(helper, BuiltInRegistries.ENTITY_TYPE.getKey(candidate.type()).getPath()
+                        + " is blocked but names no blocker");
+                }
+                if (!verdict.canSpawn() && verdict.blocker().summary().isBlank()) {
+                    throw fail(helper, BuiltInRegistries.ENTITY_TYPE.getKey(candidate.type()).getPath()
+                        + " is blocked on " + verdict.blocker().rule() + " with no measurement");
+                }
+            }
         }
         helper.succeed();
     }

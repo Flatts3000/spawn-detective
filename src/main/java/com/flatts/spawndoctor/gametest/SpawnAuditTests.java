@@ -2,7 +2,9 @@ package com.flatts.spawndoctor.gametest;
 
 import com.flatts.spawndoctor.audit.AuditReport;
 import com.flatts.spawndoctor.audit.RuleResult;
+import com.flatts.spawndoctor.audit.PositionReport;
 import com.flatts.spawndoctor.audit.SpawnAuditor;
+import com.flatts.spawndoctor.audit.SpawnVerdict;
 import com.flatts.spawndoctor.audit.SpawnRule;
 import com.flatts.spawndoctor.audit.Verdict;
 import java.util.EnumSet;
@@ -199,42 +201,47 @@ final class SpawnAuditTests {
     }
 
     /**
-     * When a permanent reason and a temporary one both apply, the headline must name
+     * When a permanent reason and a temporary one both apply, the verdict must name
      * the permanent one.
      *
      * <p>Regression test with a specific origin. The first screen build reported
      * "NOTHING CAN SPAWN HERE - at least 24 blocks from the nearest player, 1.3
      * blocks" for a lit block. That is true and worthless: you are always within 24
      * blocks of the block you are pointing at, so the tool's primary gesture always
-     * produced the same non-answer while the real cause (light) sat unmentioned.
+     * produced the same non-answer while the real cause (light) sat unmentioned. The
+     * anchor gesture removed the cause; this keeps the ordering that made it wrong.
      *
      * <p>This chamber has both a standing blocker (light) and a situational one
      * (player distance - a headless GameTest server has no player at all). The
-     * headline must pick light.
+     * verdict must pick light.
      */
     private static void headlinePrefersStandingCause(GameTestHelper helper) {
         BlockPos spawn = carveChamber(helper);
         helper.setBlock(spawn.offset(1, 0, 0), Blocks.GLOWSTONE);
 
         helper.runAfterDelay(LIGHT_SETTLE_TICKS, () -> {
-            AuditReport report = SpawnAuditor.audit(helper.getLevel(), helper.absolutePos(spawn));
-            AuditReport.Headline headline = report.headline();
+            BlockPos absolute = helper.absolutePos(spawn);
+            PositionReport position = SpawnAuditor.auditPosition(helper.getLevel(), absolute);
+            AuditReport.Candidate candidate =
+                SpawnAuditor.auditType(helper.getLevel(), absolute, EntityType.ZOMBIE);
+            SpawnVerdict verdict = SpawnVerdict.of(position, candidate);
 
-            if (headline.tone() != AuditReport.Tone.BLOCKED_ALWAYS) {
-                throw fail(helper, "expected a permanent verdict, got " + headline.tone()
-                    + ": " + headline.detail());
+            if (verdict.tone() != SpawnVerdict.Tone.BLOCKED_ALWAYS) {
+                throw fail(helper, "expected a permanent verdict, got " + verdict.tone()
+                    + " on " + verdict.blocker().rule());
             }
-            String detail = headline.detail().toLowerCase();
-            if (detail.contains("player")) {
-                throw fail(helper, "headline blamed player proximity over the standing cause: "
-                    + headline.detail());
+            String named = (verdict.blocker().rule().title() + " " + verdict.blocker().detail()).toLowerCase();
+            if (named.contains("player")) {
+                throw fail(helper, "blamed player proximity over the standing cause: " + named);
             }
-            if (!detail.contains("light") && !detail.contains("spawn rules")) {
-                throw fail(helper, "headline did not name the standing cause: " + headline.detail());
+            if (!named.contains("light") && !named.contains("spawn rules")) {
+                throw fail(helper, "did not name the standing cause: " + named);
             }
             helper.succeed();
         });
     }
+
+
 
     /**
      * No mob may be blamed on sky access unless its rules actually consult the sky.

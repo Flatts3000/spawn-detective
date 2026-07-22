@@ -2,6 +2,7 @@ package com.flatts.spawndoctor.command;
 
 import com.flatts.spawndoctor.SpawnDoctor;
 import com.flatts.spawndoctor.audit.AuditReport;
+import com.flatts.spawndoctor.audit.RuleResult;
 import com.flatts.spawndoctor.audit.SpawnAuditor;
 import com.flatts.spawndoctor.item.SpawnProbeItem;
 import com.flatts.spawndoctor.report.ChatReport;
@@ -9,6 +10,7 @@ import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.builder.ArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
+import java.util.List;
 import java.util.function.Consumer;
 import net.minecraft.commands.CommandBuildContext;
 import net.minecraft.commands.CommandSourceStack;
@@ -100,7 +102,11 @@ public final class SpawnDoctorCommand {
     private static int auditOne(CommandSourceStack source, BlockPos pos, EntityType<?> type) {
         ServerLevel level = source.getLevel();
         AuditReport.Candidate candidate = SpawnAuditor.auditType(level, pos, type);
-        for (Component line : ChatReport.renderSingle(level, pos, candidate)) {
+        // The world rules travel with the candidate: a mob's own gates can all pass
+        // while a shut world gate stops it anyway, and a verdict that ignored them
+        // would contradict the rules printed beneath it.
+        List<RuleResult> world = SpawnAuditor.auditPosition(level, pos).world();
+        for (Component line : ChatReport.renderSingle(level, pos, world, candidate)) {
             source.sendSuccess(() -> line, false);
         }
         return 1;

@@ -48,8 +48,9 @@ Practically this means:
 - **`./gradlew build`** - compile + JUnit. Required CI job.
 - **`./gradlew runGameTestServer`** - the in-world suite. Separate required CI job;
   `build` does **not** invoke it. Run it before pushing any change to `audit/`.
-- **`./gradlew runClient`** - dev client. **The only way to verify the overlay** -
-  GameTest is blind to client rendering.
+- **`./gradlew runClient`** - dev client. **The only way to verify the screen** -
+  GameTest is blind to client rendering, and every layout bug this repo has had was
+  found by looking, not by testing.
 - **`./gradlew prepareAllRuns`** - regenerate run VM-args after a `clean`.
 
 Run one in-world test: `runClient`, then `/test run spawndoctor:<test_name>`.
@@ -73,40 +74,56 @@ Two rules are deliberately not booleans, and both are explained at length in
 
 - **`PLACEMENT`** is decomposed by hand per placement type so the report says "the
   floor is Grass Block" rather than "placement: false".
-- **`SPAWN_RULES`** is sampled 64 times (the predicate rolls the RNG) and then
-  attributed by **re-running the same predicate under `SPAWNER` and
-  `TRIAL_SPAWNER`**, which vanilla defines as exempting the floor check and the
-  light check respectively. This is the mod's one real technique, and it is why it
-  can diagnose mobs from mods it has never heard of. Do not replace it with a
-  reimplementation of the vanilla predicates.
+- **`SPAWN_RULES`** is sampled and then attributed by **re-running the same
+  predicate under `SPAWNER` and `TRIAL_SPAWNER`**, which vanilla defines as
+  exemptions. This is the mod's one real technique, and it is why it can diagnose
+  mobs from mods it has never heard of. Do not replace it with a reimplementation of
+  the vanilla predicates. Two hard-won constraints, both with regression tests:
+  **never name a member of the exemption group by elimination** (that shipped
+  "drowned need sky"), and **require several seeds to agree** before making any
+  claim, because predicates that short-circuit draw unequal numbers of random values
+  and desynchronise a single-seed comparison.
 
-### `audit/AreaScanner` - the overlay's data source
+### The anchor gesture, and why it exists
 
-Deliberately cheaper than a full audit: 8 rolls against the biome's 4 heaviest
-monster types, not 64 against all of them. The trade is documented in the class.
-Grades are `SpawnGrade`: red spawns now, yellow is blocked only by something
-temporary, no marker is safe. **Keep yellow distinct from safe** - collapsing them
-is how these tools mislead people.
+Sneak-right-click stores a `GlobalPos` on the item (`SDDataComponents.ANCHOR`,
+lodestone-compass style); right-click reads it. This is not a convenience - it is
+what makes the numbers real. Standing next to a block to probe it breaks the
+24-block player rule and puts your hitbox in the mob's space, so an earlier build
+audited "as if you had stepped away" and every headline was an assumption.
+**Never reintroduce observer discounting.** If a reading is affected by where the
+player stands, the answer is to let them stand somewhere else, not to pretend.
 
-### `network/` + `client/` - the overlay
+A world overlay used to exist (`AreaScanner`, `SpawnGrade`, scan payloads, a
+`SubmitCustomGeometryEvent` renderer). It was removed: it graded a box against a
+*sample* of the biome's mobs while the probe answers precisely for a named mob, and
+two surfaces disagreeing about the same block is how a diagnostic tool loses trust.
 
-Client asks (`ScanRequestPayload`), server grades on the server thread via
-`context.enqueueWork`, client renders (`ScanResultPayload` -> `ClientScanState` ->
-`SpawnOverlayRenderer`). The grid is a dense `byte[]`, not a position list.
+### `client/screen/` - one block, one mob, one answer
 
-Server-side clamps on radius and requester distance are load-bearing: a scan is
-real server work done on request.
+The screen asks about a single mob. It used to audit every mob the biome offered
+and summarise them in one banner, which produced verdicts like "slime +6 more -
+needs sky": several findings averaged into a sentence true of nothing. **Averaging
+answers does not produce an answer.**
 
-On 26.1, custom world geometry goes through **`SubmitCustomGeometryEvent` ->
-`submitCustomGeometry(poseStack, RenderTypes.debugQuads(), renderer)`**. The older
-`RenderLevelStageEvent` direct-buffer form is gone.
+`PositionReport` (cheap, sent on probe) carries what is true of the place;
+`MobAuditPayloads` (expensive, sent on selection) carries the per-mob verdict. No
+per-mob work happens until a mob is named. `MobSelection` keeps the choice sticky
+across probes and drops the cached answer the moment the position changes, so a
+verdict can never be shown against the wrong coordinates.
+
+Layout rules learned from real breakage: right-aligned values must reserve the
+label's width (`drawPair`) or they paint over it; disclosure triangles are drawn
+with `fill` because the font's glyphs render as specks; and **widgets render after
+the panel background**, or they end up buried under it.
 
 ### Dist safety
 
-`SpawnProbeItem.use` calls a client class from inside an `isClientSide()` branch -
-safe because the branch never runs on a dedicated server, so the class is never
-loaded. Keep client-only code behind such a branch or in an `@OnlyIn(Dist.CLIENT)`
-class reached only from one.
+Client-only classes are reached only from `Dist.CLIENT` event subscribers or from
+clientbound payload handlers, which never run on a server. **Do not annotate them
+`@OnlyIn`** - NeoForge 26.1 removed that annotation'''s runtime effect and logs an
+error for every mod still using it, which for a diagnostic mod means polluting the
+logs it exists to help people read.
 
 ## Conventions
 

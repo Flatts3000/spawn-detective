@@ -3,6 +3,7 @@ package com.flatts.spawndoctor;
 import com.flatts.spawndoctor.event.SDModBusEvents;
 import com.flatts.spawndoctor.gametest.SDGameTests;
 import com.flatts.spawndoctor.network.SDPayloads;
+import com.flatts.spawndoctor.registry.SDDataComponents;
 import com.flatts.spawndoctor.registry.SDItems;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
@@ -26,6 +27,7 @@ public final class SpawnDoctor {
     public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
 
     public SpawnDoctor(IEventBus modEventBus, ModContainer modContainer) {
+        SDDataComponents.register(modEventBus);
         SDItems.register(modEventBus);
         modEventBus.addListener(SDModBusEvents::onBuildCreativeTabs);
         modEventBus.addListener(SDPayloads::register);

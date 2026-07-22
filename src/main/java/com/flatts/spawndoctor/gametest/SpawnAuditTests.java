@@ -6,12 +6,16 @@ import com.flatts.spawndoctor.audit.SpawnAuditor;
 import com.flatts.spawndoctor.audit.SpawnRule;
 import com.flatts.spawndoctor.audit.Verdict;
 import java.util.EnumSet;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTestAssertException;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.network.chat.Component;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.world.entity.MobCategory;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.level.block.Blocks;
 
@@ -34,6 +38,9 @@ final class SpawnAuditTests {
         SDGameTests.test("no_floor_blocks_on_placement", 1, SpawnAuditTests::noFloorBlocksOnPlacement);
         SDGameTests.test("bright_chamber_attributes_light", 40, SpawnAuditTests::brightChamberAttributesLight);
         SDGameTests.test("dark_chamber_passes_spawn_rules", 40, SpawnAuditTests::darkChamberPasses);
+        SDGameTests.test("headline_prefers_standing_cause", 40, SpawnAuditTests::headlinePrefersStandingCause);
+        SDGameTests.test("attribution_is_stable", 40, SpawnAuditTests::attributionIsStable);
+        SDGameTests.test("no_sky_blame_without_sky_rule", 40, SpawnAuditTests::noSkyBlameWithoutSkyRule);
     }
 
     /**
@@ -111,7 +118,19 @@ final class SpawnAuditTests {
         helper.runAfterDelay(LIGHT_SETTLE_TICKS, () -> {
             RuleResult blocker = blockerFor(helper, spawn, EntityType.ZOMBIE);
             assertRule(helper, blocker, SpawnRule.SPAWN_RULES);
-            assertDetailContains(helper, blocker, "cause: light");
+            // Both halves matter: the cause must be light, and the measured value
+            // must reach the column - "light" with no number is not an answer.
+            assertDetailContains(helper, blocker, "light");
+            assertDetailContains(helper, blocker, "block light 14");
+            if (!blocker.value().contains("light")) {
+                throw fail(helper, "the column value should carry the light measurement, got: "
+                    + blocker.value());
+            }
+            if (blocker.effectiveRemedy() == null
+                || !blocker.effectiveRemedy().toLowerCase().contains("light source")) {
+                throw fail(helper, "expected a remedy naming the light source, got: "
+                    + blocker.effectiveRemedy());
+            }
             helper.succeed();
         });
     }
@@ -132,6 +151,127 @@ final class SpawnAuditTests {
             if (spawnRules.verdict() == Verdict.FAIL) {
                 throw fail(helper, "a sealed dark chamber should not fail the spawn rules, got: "
                     + spawnRules.detail());
+            }
+            // A cave has no sky by definition, and almost no monster requires sky.
+            // Blaming sky access for a cave was a real misdiagnosis; see
+            // attributionIsStable for the noise that caused it.
+            if (spawnRules.detail().toLowerCase().contains("sky access")) {
+                throw fail(helper, "a dark cave must not be blamed on sky access: " + spawnRules.detail());
+            }
+            helper.succeed();
+        });
+    }
+
+    /**
+     * The same position must produce the same verdict twice running.
+     *
+     * <p>Regression test for a misdiagnosis seen live: a dark cave at Y=39 reported
+     * "no sky access" as the cause for all eight monsters. The predicate rolls the
+     * RNG, and the attribution compares a NATURAL sample set against SPAWNER and
+     * TRIAL_SPAWNER sets. Drawing fresh randomness for each set meant luck alone
+     * could make one pass and another fail, and that difference was then read as
+     * causal. All three now draw from one seed, so the only thing varying between
+     * them is the spawn reason - a controlled experiment rather than three
+     * independent coin flips.
+     */
+    private static void attributionIsStable(GameTestHelper helper) {
+        BlockPos spawn = carveChamber(helper);
+        helper.setBlock(spawn.offset(1, 0, 0), Blocks.GLOWSTONE);
+
+        helper.runAfterDelay(LIGHT_SETTLE_TICKS, () -> {
+            BlockPos absolute = helper.absolutePos(spawn);
+            String first = null;
+            for (int attempt = 0; attempt < 6; attempt++) {
+                AuditReport.Candidate candidate =
+                    SpawnAuditor.auditType(helper.getLevel(), absolute, EntityType.ZOMBIE);
+                String verdict = candidate.blocker()
+                    .map(b -> b.rule() + "/" + b.summary())
+                    .orElse("viable");
+                if (first == null) {
+                    first = verdict;
+                } else if (!first.equals(verdict)) {
+                    throw fail(helper, "attribution is unstable across runs: '" + first
+                        + "' then '" + verdict + "'");
+                }
+            }
+            helper.succeed();
+        });
+    }
+
+    /**
+     * When a permanent reason and a temporary one both apply, the headline must name
+     * the permanent one.
+     *
+     * <p>Regression test with a specific origin. The first screen build reported
+     * "NOTHING CAN SPAWN HERE - at least 24 blocks from the nearest player, 1.3
+     * blocks" for a lit block. That is true and worthless: you are always within 24
+     * blocks of the block you are pointing at, so the tool's primary gesture always
+     * produced the same non-answer while the real cause (light) sat unmentioned.
+     *
+     * <p>This chamber has both a standing blocker (light) and a situational one
+     * (player distance - a headless GameTest server has no player at all). The
+     * headline must pick light.
+     */
+    private static void headlinePrefersStandingCause(GameTestHelper helper) {
+        BlockPos spawn = carveChamber(helper);
+        helper.setBlock(spawn.offset(1, 0, 0), Blocks.GLOWSTONE);
+
+        helper.runAfterDelay(LIGHT_SETTLE_TICKS, () -> {
+            AuditReport report = SpawnAuditor.audit(helper.getLevel(), helper.absolutePos(spawn));
+            AuditReport.Headline headline = report.headline();
+
+            if (headline.tone() != AuditReport.Tone.BLOCKED_ALWAYS) {
+                throw fail(helper, "expected a permanent verdict, got " + headline.tone()
+                    + ": " + headline.detail());
+            }
+            String detail = headline.detail().toLowerCase();
+            if (detail.contains("player")) {
+                throw fail(helper, "headline blamed player proximity over the standing cause: "
+                    + headline.detail());
+            }
+            if (!detail.contains("light") && !detail.contains("spawn rules")) {
+                throw fail(helper, "headline did not name the standing cause: " + headline.detail());
+            }
+            helper.succeed();
+        });
+    }
+
+    /**
+     * No mob may be blamed on sky access unless its rules actually consult the sky.
+     *
+     * <p>Chasing a live misdiagnosis: a dark cave reported "slime +6 more - needs
+     * sky". Slime's rules never mention sky - underground it wants a slime chunk
+     * below Y 40, and on the surface a swamp between Y 50 and 70 - so sky cannot be
+     * the cause for it under any circumstances. This walks every monster the
+     * registry offers through a sealed sky-less chamber and fails on any sky claim,
+     * since a chamber with a valid floor leaves nothing for sky to explain.
+     */
+    private static void noSkyBlameWithoutSkyRule(GameTestHelper helper) {
+        BlockPos spawn = carveChamber(helper);
+
+        helper.runAfterDelay(LIGHT_SETTLE_TICKS, () -> {
+            BlockPos absolute = helper.absolutePos(spawn);
+            List<String> wrong = new ArrayList<>();
+
+            for (EntityType<?> type : BuiltInRegistries.ENTITY_TYPE) {
+                if (type.getCategory() != MobCategory.MONSTER) {
+                    continue;
+                }
+                AuditReport.Candidate candidate = SpawnAuditor.auditType(helper.getLevel(), absolute, type);
+                // The column value is the claim. Prose may still offer sky as one
+                // possibility among several - that is a lead, not an assertion, and
+                // leads are allowed precisely because the cause cannot be narrowed.
+                candidate.rules().stream()
+                    .filter(r -> r.rule() == SpawnRule.SPAWN_RULES)
+                    .filter(r -> r.value().toLowerCase().contains("sky"))
+                    .findFirst()
+                    .ifPresent(r -> wrong.add(
+                        BuiltInRegistries.ENTITY_TYPE.getKey(type).getPath() + " -> " + r.value()));
+            }
+
+            if (!wrong.isEmpty()) {
+                throw fail(helper, "sky blamed in a sealed chamber for: "
+                    + String.join(" | ", wrong.subList(0, Math.min(3, wrong.size()))));
             }
             helper.succeed();
         });

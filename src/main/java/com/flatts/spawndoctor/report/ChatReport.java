@@ -89,7 +89,7 @@ public final class ChatReport {
         lines.add(indent(Component.literal(SpawnAuditor.describeLight(level, pos))
             .withStyle(ChatFormatting.DARK_GRAY)));
 
-        blocker.map(RuleResult::rule).map(SpawnRule::remedy).ifPresent(remedy ->
+        blocker.map(RuleResult::effectiveRemedy).ifPresent(remedy ->
             lines.add(Component.literal(remedy).withStyle(ChatFormatting.YELLOW)));
 
         return lines;
@@ -182,7 +182,7 @@ public final class ChatReport {
         }
 
         Optional<RuleResult> blocker = candidate.blocker();
-        blocker.map(RuleResult::rule).map(SpawnRule::remedy).ifPresent(remedy ->
+        blocker.map(RuleResult::effectiveRemedy).ifPresent(remedy ->
             tooltip.append(Component.literal("\n\n" + remedy).withStyle(ChatFormatting.YELLOW)));
 
         return tooltip;

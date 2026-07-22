@@ -37,7 +37,8 @@ have rejected on.
 | 15 | `SPAWN_RULES` | `SpawnPlacements.checkSpawnRules` | Sampled, then attributed - see below. Fires NeoForge's `SpawnPlacementCheck`. |
 | 16 | `NO_COLLISION` | `ServerLevel.noCollision(type.getSpawnAABB(...))` | |
 | 17 | `SPAWN_CHARGE` | `NaturalSpawner.SpawnState.canSpawn` | Biome `MobSpawnCost`. Needs the AT on `SpawnState.spawnPotential`. |
-| 18 | `POSITION_CHECK` | `EventHooks.checkSpawnPosition` | NeoForge `PositionCheck`. Where other mods veto. |
+| 18 | `SPAWN_OBSTRUCTED` | `Mob.checkSpawnObstruction` | Liquid in the body, or an entity already in the space. Split out so it can be named. |
+| 19 | `POSITION_CHECK` | `EventHooks.checkSpawnPosition` | NeoForge `PositionCheck`, reported only once obstruction is ruled out. |
 
 ## The two rules that are not booleans
 
@@ -81,13 +82,31 @@ itself defines as exemptions:
 
 So:
 
-- NATURAL fails, SPAWNER passes -> the cause is in the spawner-exempt group. The
-  auditor then splits it definitively by testing `isValidSpawn` on the block below
-  and `canSeeSky` directly, and reports "the floor" or "no sky access".
-- SPAWNER fails, TRIAL_SPAWNER passes -> **the cause is light**, and the measured
-  light values are reported alongside.
-- Both fail -> the cause is neither light nor floor. Reported honestly as "biome,
-  height, weather, difficulty, or this mob's own condition".
+- NATURAL fails, SPAWNER passes -> the cause is somewhere in the spawner-exempt
+  group. The **floor** is then checked directly with `isValidSpawn` and named if it
+  is at fault. Anything else in that group is reported *as a group*, with its usual
+  members offered as leads.
+- SPAWNER fails, TRIAL_SPAWNER passes -> **the cause is light**, with the measured
+  values and a remedy that distinguishes sky light from block light, since those are
+  fixed by opposite actions.
+- Both fail -> neither light nor floor. Reported honestly as "biome, height,
+  weather, difficulty, or this mob's own condition".
+
+### Two things this technique cannot do, learned the hard way
+
+**Do not name a member of the exemption group by elimination.** The first version
+reasoned "the exemption fixed it and the floor is valid, therefore sky access", and
+told players that *drowned* need sky. They need water - `Drowned.checkDrownedSpawnRules`
+gates that requirement behind `isSpawner` too, and any mod may gate anything there.
+The group is open-ended, so ruling out the one member you can check does not
+identify the rest. Only the floor is claimed, because only the floor is measured.
+
+**Pair the spawn reasons on a shared seed, and require several seeds to agree.**
+The comparison is only controlled while the predicate draws the same number of
+random values each way, and some do not - `Slime.checkSlimeSpawnRules` short-circuits
+through a chain of `nextFloat` calls. A single seed can desynchronise the runs and
+manufacture a difference that has nothing to do with the exemption. `ATTRIBUTION_SEEDS`
+independent seeds must agree before any claim is made.
 
 This works for any mod predicate built out of the vanilla helpers, and degrades to
 a truthful "not attributable" when it is not. It is the only part of the mod that
@@ -114,7 +133,10 @@ Without `localMobCapCalculator` the per-player cap cannot be read at all.
   The report says so rather than pretending the check is exact.
 - **`POSITION_CHECK` does not name the mod that vetoed.** Attributing an event
   result to a specific listener means walking the bus registration, which is a
-  separate piece of work. Today it reports that something vetoed, not who.
-- **The overlay is coarser than the probe.** See `AreaScanner`: it grades against
-  the biome's heaviest monster types with 8 rolls, not every type with 64. The
-  trade is stated in that class and the probe remains the source of truth.
+  separate piece of work. It reports that a mod vetoed - a conclusion it only
+  reaches after proving the space is clear and the mob itself accepts the position -
+  but not which mod.
+- **Members of the spawner-exempt group other than the floor are not named.**
+  Pinpointing them would need a delegating `ServerLevelAccessor` that lies about one
+  input at a time so the predicate can be re-run against a changed world view. That
+  is the natural next step, and until it exists the report names the group.

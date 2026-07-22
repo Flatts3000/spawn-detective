@@ -1,12 +1,12 @@
 # Spawn Doctor
 
-**Why won't mobs spawn here?** Point the probe at the block and find out.
+**Why won't this mob spawn here?** Anchor the block, walk away, pick the mob, read the answer.
 
-Spawn Doctor replays Minecraft's real natural-spawn pipeline against one block
-position and tells you which rule rejected it - the mob cap, the chunk not
-ticking, the 24-block player bubble, the biome's spawn list, the floor, the light
-level, the hitbox, the biome spawn-cost budget, or another mod's veto. It does not
-guess and it does not reimplement the rules; it calls them.
+Spawn Doctor replays Minecraft's real natural-spawn pipeline against one block and
+one mob, and tells you which rule rejected it - the mob cap, the chunk not ticking,
+the biome's spawn list, the floor, the light level, the hitbox, the spawn-cost
+budget, or another mod's veto. It does not guess and it does not reimplement the
+rules; it calls them.
 
 It works for mobs from any mod, because it asks the game rather than hardcoding
 what it thinks the game does.
@@ -17,33 +17,34 @@ what it thinks the game does.
 
 ## Using it
 
-### The Spawn Probe
-
-| Action | What it does |
+| Gesture | What it does |
 |---|---|
-| Right-click a block | Audit the space **above** it - where a mob would stand |
-| Sneak + right-click a block | Audit **that** block - for water and lava mobs |
-| Right-click the air | Toggle the live overlay |
+| **Sneak + right-click a block** | Anchor the space above it - where a mob would stand |
+| **Right-click** (air, or anything) | Open the report for the anchored block |
+| **Sneak + right-click the air** | Clear the anchor |
 
-The report is one headline answer plus only what failed. Hover any mob line to see
-its full rule walk and what to do about the blocker.
+**Why two steps.** To point at a block you have to stand next to it, and standing
+there breaks two real spawn rules: the 24-block player bubble, and the obstruction
+check, because your own hitbox occupies the space the mob needs. Anchoring lets you
+walk off and take the reading for real. The header shows your live distance from
+the anchor, in yellow while you are still close enough to be the problem yourself.
 
-### The overlay
+**Then pick a mob.** Search by name or by namespaced id, or click one from *"Mobs
+this biome spawns here"*. The banner becomes that mob's verdict:
 
-Colours mark what happens once you walk away:
+- **green** - it can spawn here
+- **red** - permanently blocked: the floor, the light, the biome, the hitbox
+- **yellow** - blocked only *right now*: mob cap full, difficulty, someone standing there
 
-- **Red** - a mob can spawn here right now.
-- **Yellow** - physically spawnable, blocked only by something temporary: you are
-  standing too close, the mob cap is full, or the difficulty is Peaceful. **This
-  will spawn the moment that changes.**
-- **No marker** - safe. Either the shape of the world rejects every mob, or your
-  lighting already does.
+Yellow being its own colour is the point. "Safe" and "safe only at this moment" are
+different answers that call for opposite actions, and folding them together is the
+most common way these tools mislead people.
 
-Yellow being its own colour is the point. An overlay that folds "safe" and "safe
-only while you stand here" into one colour is the most common way these tools
-mislead people.
+The selection sticks, so checking twenty blocks for zombies costs one choice rather
+than twenty. Below the banner, **Why** lists that mob's full walk through every
+gate, with the measurement behind each verdict.
 
-### The command
+## The command
 
 ```
 /spawndoctor                        audit where you are standing
@@ -52,12 +53,8 @@ mislead people.
 /spawndoctor at <x y z> for <entity>
 ```
 
-`for <entity>` skips the biome spawn list, so "why won't zombies spawn here" is
-answerable even in a biome whose list has no zombies - which is exactly when
-people ask.
-
-Requires gamemaster permission, because the report exposes server-wide mob cap
-state.
+Text output, so it also works from the server console and command blocks. Requires
+gamemaster permission, because the report exposes server-wide mob cap state.
 
 ## Building
 
@@ -71,16 +68,20 @@ Both `build` and `runGameTestServer` are required to merge.
 
 ## How it stays correct
 
-Every rule the mod reports maps to a specific vanilla call site, documented in
+Every rule maps to a specific vanilla call site, documented in
 [`docs/spawn_pipeline_map.md`](docs/spawn_pipeline_map.md). That file is the
 contract: if a rule stops matching its call site, the mod is confidently wrong,
 which is worse than not existing. It is the first thing to re-verify on a game
 update.
 
-The in-world test suite asserts the *causes*, not just the verdicts - a sealed lit
-chamber must be attributed to light and not to the floor - and a robustness suite
-runs the auditor against every entity type in the registry, which in a modded
-instance means every mob in your pack.
+The in-world suite asserts the *causes*, not just the verdicts - a sealed lit
+chamber must be attributed to light and not to the floor - and several tests exist
+specifically to keep old misdiagnoses from returning. A robustness suite runs the
+auditor against every entity type in the registry, which in a modded instance means
+every mob in your pack.
+
+Where a cause genuinely cannot be narrowed, the report says so and offers leads
+rather than picking one. A vague true answer beats a precise false one.
 
 ## Licence
 

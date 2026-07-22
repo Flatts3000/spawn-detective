@@ -1,4 +1,6 @@
 {
   "item.spawndoctor.spawn_probe": "Spawn Probe",
-  "item.spawndoctor.spawn_probe.tooltip": "Right-click a block: audit the space above it. Sneak-right-click: audit the block itself."
+  "spawndoctor.anchor.set": "Anchored %s",
+  "spawndoctor.anchor.cleared": "Anchor cleared",
+  "spawndoctor.anchor.none": "No block anchored yet - sneak-right-click the block you want to check."
 }

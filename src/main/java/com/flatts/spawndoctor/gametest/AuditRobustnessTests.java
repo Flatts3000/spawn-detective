@@ -37,6 +37,71 @@ final class AuditRobustnessTests {
         SDGameTests.test("audit_survives_extreme_heights", 1, AuditRobustnessTests::extremeHeights);
         SDGameTests.test("audit_survives_distant_unloaded_chunk", 1, AuditRobustnessTests::distantChunk);
         SDGameTests.test("audit_covers_every_spawning_category", 1, AuditRobustnessTests::everyCategory);
+        SDGameTests.test("empty_categories_are_not_reported", 1, AuditRobustnessTests::emptyCategoriesHidden);
+        SDGameTests.test("headline_always_answers", 1, AuditRobustnessTests::headlineAlwaysAnswers);
+    }
+
+    /**
+     * A category the biome offers no mobs for must be dropped from the report and
+     * must never have cap rules evaluated against it.
+     *
+     * <p>This is a regression test with a specific origin: the first build reported
+     * "the water_creature cap is full: 5/5" *and* "no water_creature entries for
+     * this biome" in a forest, on the same screen. Both lines were individually
+     * true and together they were noise that buried the actual answer. Caps for a
+     * category with nothing to spawn are not an answer to anyone's question.
+     */
+    private static void emptyCategoriesHidden(GameTestHelper helper) {
+        AuditReport report = SpawnAuditor.audit(helper.getLevel(), helper.absolutePos(new BlockPos(1, 2, 1)));
+
+        for (AuditReport.Category category : report.categories()) {
+            if (!category.candidates().isEmpty()) {
+                continue;
+            }
+            if (category.relevant()) {
+                throw fail(helper, "category " + category.category().getName()
+                    + " has no mobs here but is marked relevant");
+            }
+            for (RuleResult result : category.rules()) {
+                if (result.rule() != com.flatts.spawndoctor.audit.SpawnRule.BIOME_SPAWN_LIST) {
+                    throw fail(helper, "category " + category.category().getName()
+                        + " has no mobs here but still evaluated " + result.rule());
+                }
+            }
+        }
+
+        if (report.relevantCategories().stream().anyMatch(c -> c.candidates().isEmpty())) {
+            throw fail(helper, "relevantCategories() returned a category with no mobs");
+        }
+        helper.succeed();
+    }
+
+    /**
+     * There is always exactly one headline, and it always says something. The
+     * headline is the entire product - a blank or placeholder one means the player
+     * opened the screen and learned nothing.
+     */
+    private static void headlineAlwaysAnswers(GameTestHelper helper) {
+        AuditReport report = SpawnAuditor.audit(helper.getLevel(), helper.absolutePos(new BlockPos(1, 2, 1)));
+        AuditReport.Headline headline = report.headline();
+
+        if (headline.verdict().isBlank()) {
+            throw fail(helper, "headline verdict is blank");
+        }
+        if (headline.detail().isBlank()) {
+            throw fail(helper, "headline detail is blank - no reason given");
+        }
+        // A cause with no subject is not actionable: "the mob's own spawn rules -
+        // needs sky" leaves the reader with no idea which mob is meant.
+        if (!report.relevantCategories().isEmpty() && !headline.canSpawn()
+            && !headline.detail().contains(" - ")) {
+            throw fail(helper, "headline names no subject: " + headline.detail());
+        }
+        if (headline.canSpawn() != report.anythingCanSpawn()) {
+            throw fail(helper, "headline disagrees with the report: headline says canSpawn="
+                + headline.canSpawn() + " but anythingCanSpawn=" + report.anythingCanSpawn());
+        }
+        helper.succeed();
     }
 
     /**

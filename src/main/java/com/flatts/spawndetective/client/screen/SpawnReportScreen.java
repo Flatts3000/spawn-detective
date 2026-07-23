@@ -10,19 +10,18 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.MobCategory;
-import net.neoforged.neoforge.client.network.ClientPacketDistributor;
-import org.jspecify.annotations.Nullable;
+import net.neoforged.neoforge.network.PacketDistributor;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * One block, one mob, one answer.
@@ -147,7 +146,7 @@ public class SpawnReportScreen extends Screen {
 
     private void ask(EntityType<?> type) {
         MobSelection.select(type);
-        ClientPacketDistributor.sendToServer(new MobAuditPayloads.Request(this.position.pos(), type));
+        PacketDistributor.sendToServer(new MobAuditPayloads.Request(this.position.pos(), type));
         rebuildRows();
     }
 
@@ -232,7 +231,7 @@ public class SpawnReportScreen extends Screen {
     }
 
     private static ReportRow.Suggestion suggestionRow(EntityType<?> type) {
-        Identifier id = BuiltInRegistries.ENTITY_TYPE.getKey(type);
+        ResourceLocation id = BuiltInRegistries.ENTITY_TYPE.getKey(type);
         return new ReportRow.Suggestion(type,
             Component.literal(type.getDescription().getString()),
             Component.literal(id.toString()));
@@ -252,7 +251,7 @@ public class SpawnReportScreen extends Screen {
             if (type.getCategory() == MobCategory.MISC) {
                 continue; // Arrows and boats do not spawn; offering them is noise.
             }
-            Identifier id = BuiltInRegistries.ENTITY_TYPE.getKey(type);
+            ResourceLocation id = BuiltInRegistries.ENTITY_TYPE.getKey(type);
             String readable = type.getDescription().getString();
             if (!id.toString().toLowerCase(Locale.ROOT).contains(query)
                 && !readable.toLowerCase(Locale.ROOT).contains(query)) {
@@ -285,7 +284,7 @@ public class SpawnReportScreen extends Screen {
     // ------------------------------------------------------------------- render
 
     @Override
-    public void extractRenderState(GuiGraphicsExtractor gui, int mouseX, int mouseY, float partialTick) {
+    public void render(GuiGraphics gui, int mouseX, int mouseY, float partialTick) {
         gui.fill(this.left - 1, this.top - 1, this.left + PANEL_WIDTH + 1, this.top + PANEL_HEIGHT + 1, COLOR_BORDER);
         gui.fill(this.left, this.top, this.left + PANEL_WIDTH, this.top + PANEL_HEIGHT, COLOR_PANEL);
 
@@ -295,23 +294,23 @@ public class SpawnReportScreen extends Screen {
 
         // Widgets last. Calling super first painted the search field and then buried
         // it under this panel's own background - present, focusable, and invisible.
-        super.extractRenderState(gui, mouseX, mouseY, partialTick);
+        super.render(gui, mouseX, mouseY, partialTick);
     }
 
-    private void drawHeader(GuiGraphicsExtractor gui) {
+    private void drawHeader(GuiGraphics gui) {
         gui.fill(this.left, this.top, this.left + PANEL_WIDTH, this.top + HEADER_HEIGHT, COLOR_HEADER);
         gui.fill(this.left, this.top + HEADER_HEIGHT - 1, this.left + PANEL_WIDTH, this.top + HEADER_HEIGHT,
             COLOR_DIVIDER);
 
         int x = this.left + PADDING;
-        gui.text(this.font, Component.literal("SPAWN DETECTIVE"), x, this.top + 5, TEXT_ACCENT);
+        gui.drawString(this.font, Component.literal("SPAWN DETECTIVE"), x, this.top + 5, TEXT_ACCENT);
 
         String subtitle = this.position.biome() + "  ·  " + shortDimension();
-        gui.text(this.font, Component.literal(trim(subtitle, PANEL_WIDTH - PADDING * 2)),
+        gui.drawString(this.font, Component.literal(trim(subtitle, PANEL_WIDTH - PADDING * 2)),
             x, this.top + 15, TEXT_FAINT);
 
         Component coords = Component.literal(this.position.pos().toShortString());
-        gui.text(this.font, coords, this.left + PANEL_WIDTH - PADDING - this.font.width(coords),
+        gui.drawString(this.font, coords, this.left + PANEL_WIDTH - PADDING - this.font.width(coords),
             this.top + 5, TEXT_MUTED);
 
         // How far the reader is standing from the block they anchored. This is the
@@ -323,12 +322,12 @@ public class SpawnReportScreen extends Screen {
             double away = Math.sqrt(local.distanceToSqr(
                 this.position.pos().getX() + 0.5, this.position.pos().getY(), this.position.pos().getZ() + 0.5));
             Component distance = Component.literal(String.format(Locale.ROOT, "%.0f blocks away", away));
-            gui.text(this.font, distance, this.left + PANEL_WIDTH - PADDING - this.font.width(distance),
+            gui.drawString(this.font, distance, this.left + PANEL_WIDTH - PADDING - this.font.width(distance),
                 this.top + 15, away > 24.0 ? TEXT_FAINT : TEXT_WARN);
         }
     }
 
-    private void drawBanner(GuiGraphicsExtractor gui) {
+    private void drawBanner(GuiGraphics gui) {
         int y = this.top + HEADER_HEIGHT + SEARCH_HEIGHT;
         int x = this.left + PADDING + 4;
         int textWidth = PANEL_WIDTH - (x - this.left) - PADDING;
@@ -378,15 +377,15 @@ public class SpawnReportScreen extends Screen {
         gui.fill(this.left, y, this.left + 2, y + BANNER_HEIGHT, accent);
 
         int line = y + 6;
-        gui.text(this.font, Component.literal(glyphFor(accent) + "  " + verdict), x, line, accent);
+        gui.drawString(this.font, Component.literal(glyphFor(accent) + "  " + verdict), x, line, accent);
         line += 12;
         for (String part : detail) {
-            gui.text(this.font, Component.literal(part), x, line, TEXT_PRIMARY);
+            gui.drawString(this.font, Component.literal(part), x, line, TEXT_PRIMARY);
             line += 10;
         }
         if (remedy != null && line + 10 <= y + BANNER_HEIGHT) {
             for (String part : wrap("→ " + remedy, textWidth, 2)) {
-                gui.text(this.font, Component.literal(part), x, line, TEXT_WARN);
+                gui.drawString(this.font, Component.literal(part), x, line, TEXT_WARN);
                 line += 10;
             }
         }
@@ -404,7 +403,7 @@ public class SpawnReportScreen extends Screen {
         return accent == TEXT_WARN ? "!" : "?";
     }
 
-    private void drawBody(GuiGraphicsExtractor gui, int mouseX, int mouseY) {
+    private void drawBody(GuiGraphics gui, int mouseX, int mouseY) {
         int top = bodyTop();
         int visible = visibleRows();
         int hovered = hoveredIndex(mouseX, mouseY);
@@ -418,7 +417,7 @@ public class SpawnReportScreen extends Screen {
         drawScrollbar(gui, top, visible);
     }
 
-    private void drawRow(GuiGraphicsExtractor gui, ReportRow row, int y, boolean hovered) {
+    private void drawRow(GuiGraphics gui, ReportRow row, int y, boolean hovered) {
         int x = this.left + PADDING;
         int right = this.left + PANEL_WIDTH - PADDING - 4;
 
@@ -439,7 +438,7 @@ public class SpawnReportScreen extends Screen {
                     gui.fill(this.left + 2, y, right + PADDING, y + ReportRow.HEIGHT - 1, COLOR_ROW_HOVER);
                 }
                 boolean current = suggestion.type() == MobSelection.selected();
-                gui.text(this.font, Component.literal(current ? "✓" : "+"), x, y + 2,
+                gui.drawString(this.font, Component.literal(current ? "✓" : "+"), x, y + 2,
                     current ? TEXT_GOOD : TEXT_ACCENT);
                 drawPair(gui, x + 10, y + 2, suggestion.name(), suggestion.id(), right,
                     current ? TEXT_GOOD : TEXT_PRIMARY, TEXT_FAINT);
@@ -450,7 +449,7 @@ public class SpawnReportScreen extends Screen {
                 }
                 RuleResult result = rule.result();
                 int indent = x + 12 * rule.indent();
-                gui.text(this.font, Component.literal(glyph(result.verdict())), indent, y + 2,
+                gui.drawString(this.font, Component.literal(glyph(result.verdict())), indent, y + 2,
                     verdictColor(result.verdict()));
                 drawPair(gui, indent + 10, y + 2,
                     Component.literal(result.rule().title()),
@@ -480,20 +479,20 @@ public class SpawnReportScreen extends Screen {
      * and is useless when mangled.
      */
     private void drawPair(
-        GuiGraphicsExtractor gui, int labelX, int y, Component label, Component value,
+        GuiGraphics gui, int labelX, int y, Component label, Component value,
         int right, int labelColor, int valueColor
     ) {
-        gui.text(this.font, label, labelX, y, labelColor);
+        gui.drawString(this.font, label, labelX, y, labelColor);
 
         int available = right - (labelX + this.font.width(label) + COLUMN_GAP);
         if (available <= this.font.width("...")) {
             return; // No honest room for the value; the label alone beats a smear.
         }
         String text = trim(value.getString(), available);
-        gui.text(this.font, Component.literal(text), right - this.font.width(text), y, valueColor);
+        gui.drawString(this.font, Component.literal(text), right - this.font.width(text), y, valueColor);
     }
 
-    private static void drawTriangle(GuiGraphicsExtractor gui, int x, int y, boolean expanded, int color) {
+    private static void drawTriangle(GuiGraphics gui, int x, int y, boolean expanded, int color) {
         if (expanded) {
             for (int i = 0; i < 3; i++) {
                 gui.fill(x + i, y + i, x + 7 - i, y + i + 1, color);
@@ -505,7 +504,7 @@ public class SpawnReportScreen extends Screen {
         }
     }
 
-    private void drawScrollbar(GuiGraphicsExtractor gui, int top, int visible) {
+    private void drawScrollbar(GuiGraphics gui, int top, int visible) {
         if (this.rows.size() <= visible) {
             return;
         }
@@ -531,8 +530,8 @@ public class SpawnReportScreen extends Screen {
     }
 
     @Override
-    public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
-        int index = hoveredIndex((int) event.x(), (int) event.y());
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        int index = hoveredIndex((int) mouseX, (int) mouseY);
         if (index >= 0) {
             if (this.rows.get(index) instanceof ReportRow.Suggestion suggestion) {
                 // Choosing from the list is also how you clear a search: the field
@@ -552,7 +551,7 @@ public class SpawnReportScreen extends Screen {
                 return true;
             }
         }
-        return super.mouseClicked(event, doubleClick);
+        return super.mouseClicked(mouseX, mouseY, button);
     }
 
     @Override

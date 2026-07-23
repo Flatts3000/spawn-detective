@@ -3,7 +3,7 @@ package com.flatts.spawndetective.client.screen;
 import com.flatts.spawndetective.audit.AuditReport;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.EntityType;
-import org.jspecify.annotations.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * The mob the reader is currently asking about, remembered between probes.

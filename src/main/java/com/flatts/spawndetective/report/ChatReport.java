@@ -146,7 +146,7 @@ public final class ChatReport {
                     ? ChatFormatting.YELLOW : ChatFormatting.RED));
         }
 
-        return line.withStyle(style -> style.withHoverEvent(new HoverEvent.ShowText(walk(candidate))));
+        return line.withStyle(style -> style.withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, walk(candidate))));
     }
 
     private static Component verdictLine(SpawnVerdict verdict, String name) {

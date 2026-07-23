@@ -1,9 +1,16 @@
 # Changelog
 
+This is the **1.21.1 line**. It covers this branch only; the 26.1 line has its own
+changelog on `main`.
+
 ## v0.1.0-alpha.1
 
 First release. Alpha because it has never been run outside a development
 environment, not because anything is known to be broken.
+
+**Minecraft 1.21.1 / NeoForge 21.1.230.** Same mod as the 26.1 line, same answers,
+built against this version's spawn code. Take the jar whose name carries your game
+version.
 
 **What it does.** Anchor a block with the Spawn Probe, walk away, pick a mob, and
 it tells you whether that mob can spawn there and which rule stopped it. It walks

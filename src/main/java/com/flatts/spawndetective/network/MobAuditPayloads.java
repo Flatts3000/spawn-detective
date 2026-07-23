@@ -8,7 +8,7 @@ import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.EntityType;
 
 /**
@@ -31,7 +31,7 @@ public final class MobAuditPayloads {
     public record Request(BlockPos pos, EntityType<?> entityType) implements CustomPacketPayload {
 
         public static final Type<Request> TYPE =
-            new Type<>(Identifier.fromNamespaceAndPath(SpawnDetective.MOD_ID, "mob_audit_request"));
+            new Type<>(ResourceLocation.fromNamespaceAndPath(SpawnDetective.MOD_ID, "mob_audit_request"));
 
         public static final StreamCodec<RegistryFriendlyByteBuf, Request> CODEC = StreamCodec.composite(
             BlockPos.STREAM_CODEC, Request::pos,
@@ -48,7 +48,7 @@ public final class MobAuditPayloads {
     public record Result(BlockPos pos, AuditReport.Candidate candidate) implements CustomPacketPayload {
 
         public static final Type<Result> TYPE =
-            new Type<>(Identifier.fromNamespaceAndPath(SpawnDetective.MOD_ID, "mob_audit_result"));
+            new Type<>(ResourceLocation.fromNamespaceAndPath(SpawnDetective.MOD_ID, "mob_audit_result"));
 
         public static final StreamCodec<RegistryFriendlyByteBuf, Result> CODEC = StreamCodec.composite(
             BlockPos.STREAM_CODEC, Result::pos,

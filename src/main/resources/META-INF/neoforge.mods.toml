@@ -1,4 +1,7 @@
 modLoader = "javafml"
+# Required on 1.21.1. Its absence is what makes FML reject the mod outright with
+# "is not a valid mod file", which surfaces as the unit-test JVM refusing to start.
+loaderVersion = "${neoforge_loader_version_range}"
 license = "${mod_license}"
 issueTrackerURL = "https://github.com/Flatts3000/spawn-detective/issues"
 

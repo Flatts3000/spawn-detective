@@ -15,7 +15,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.item.Item;
 import org.junit.jupiter.api.DisplayName;
@@ -54,7 +54,7 @@ class RecipeIntegrityTest {
     @DisplayName("the result is a real registered item")
     void resultExists() {
         String id = json().getAsJsonObject("result").get("id").getAsString();
-        assertTrue(BuiltInRegistries.ITEM.containsKey(Identifier.parse(id)),
+        assertTrue(BuiltInRegistries.ITEM.containsKey(ResourceLocation.parse(id)),
             "the recipe produces an item that does not exist: " + id);
         assertEquals("spawndetective:spawn_probe", id);
     }
@@ -65,8 +65,15 @@ class RecipeIntegrityTest {
         JsonObject key = json().getAsJsonObject("key");
         List<String> broken = new ArrayList<>();
 
+        // On 1.21.1 an ingredient is an object - {"tag": ...} or {"item": ...} - where
+        // 26.1 accepts the flat string form ("#minecraft:saplings"). Loading the wrong
+        // shape is not a soft failure: the datapack drops the recipe and the item
+        // silently becomes uncraftable, which is exactly what this test exists to catch.
         for (String slot : key.keySet()) {
-            String ingredient = key.get(slot).getAsString();
+            JsonObject entry = key.get(slot).getAsJsonObject();
+            String ingredient = entry.has("tag")
+                ? "#" + entry.get("tag").getAsString()
+                : entry.get("item").getAsString();
             if (ingredient.startsWith("#")) {
                 // Contents cannot be checked here: item tags come from datapacks and
                 // the JUnit bootstrap loads none, so every tag reads as empty. What
@@ -75,7 +82,7 @@ class RecipeIntegrityTest {
                 if (!declaredTags().contains(ingredient.substring(1))) {
                     broken.add(ingredient + " (not a tag vanilla declares)");
                 }
-            } else if (!BuiltInRegistries.ITEM.containsKey(Identifier.parse(ingredient))) {
+            } else if (!BuiltInRegistries.ITEM.containsKey(ResourceLocation.parse(ingredient))) {
                 broken.add(ingredient + " (no such item)");
             }
         }

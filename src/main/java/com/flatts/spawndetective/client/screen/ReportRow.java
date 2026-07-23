@@ -4,7 +4,7 @@ import com.flatts.spawndetective.audit.AuditReport;
 import com.flatts.spawndetective.audit.RuleResult;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.EntityType;
-import org.jspecify.annotations.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * One line in the report screen's scrolling body.

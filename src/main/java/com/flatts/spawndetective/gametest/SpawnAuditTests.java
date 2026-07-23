@@ -1,5 +1,9 @@
 package com.flatts.spawndetective.gametest;
 
+import com.flatts.spawndetective.SpawnDetective;
+import net.minecraft.gametest.framework.GameTest;
+import net.neoforged.neoforge.gametest.GameTestHolder;
+import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 import com.flatts.spawndetective.audit.AuditReport;
 import com.flatts.spawndetective.audit.RuleResult;
 import com.flatts.spawndetective.audit.PositionReport;
@@ -29,28 +33,21 @@ import net.minecraft.world.level.block.Blocks;
  * detail text matters as much as the rule: "PLACEMENT failed" is not an answer,
  * "the floor is Air" is, and only the second is what the mod promises.
  */
-final class SpawnAuditTests {
+@GameTestHolder(SpawnDetective.MOD_ID)
+@PrefixGameTestTemplate(false)
+public final class SpawnAuditTests {
 
     private SpawnAuditTests() {
     }
 
-    static void register() {
-        SDGameTests.test("audit_covers_every_world_rule", 1, SpawnAuditTests::auditCoversEveryWorldRule);
-        SDGameTests.test("enclosed_position_blocks_on_placement", 1, SpawnAuditTests::enclosedBlocksOnPlacement);
-        SDGameTests.test("no_floor_blocks_on_placement", 1, SpawnAuditTests::noFloorBlocksOnPlacement);
-        SDGameTests.test("bright_chamber_attributes_light", 40, SpawnAuditTests::brightChamberAttributesLight);
-        SDGameTests.test("dark_chamber_passes_spawn_rules", 40, SpawnAuditTests::darkChamberPasses);
-        SDGameTests.test("headline_prefers_standing_cause", 40, SpawnAuditTests::headlinePrefersStandingCause);
-        SDGameTests.test("attribution_is_stable", 40, SpawnAuditTests::attributionIsStable);
-        SDGameTests.test("no_sky_blame_without_sky_rule", 40, SpawnAuditTests::noSkyBlameWithoutSkyRule);
-    }
 
     /**
      * The world section must evaluate every world/chunk/position rule exactly once.
      * A rule silently dropped from the walk is the worst possible failure mode -
      * the report would look complete while omitting the actual cause.
      */
-    private static void auditCoversEveryWorldRule(GameTestHelper helper) {
+    @GameTest(templateNamespace = SpawnDetective.MOD_ID, template = "empty_5x5x5", timeoutTicks = 1)
+    public static void audit_covers_every_world_rule(GameTestHelper helper) {
         AuditReport report = SpawnAuditor.audit(helper.getLevel(), helper.absolutePos(new BlockPos(1, 2, 1)));
 
         Set<SpawnRule> expected = EnumSet.of(
@@ -76,7 +73,8 @@ final class SpawnAuditTests {
     }
 
     /** A position buried in stone can only fail on placement, and must say the block is solid. */
-    private static void enclosedBlocksOnPlacement(GameTestHelper helper) {
+    @GameTest(templateNamespace = SpawnDetective.MOD_ID, template = "empty_5x5x5", timeoutTicks = 1)
+    public static void enclosed_position_blocks_on_placement(GameTestHelper helper) {
         BlockPos relative = new BlockPos(1, 1, 1);
         for (int dx = 0; dx <= 2; dx++) {
             for (int dy = 0; dy <= 2; dy++) {
@@ -93,7 +91,8 @@ final class SpawnAuditTests {
     }
 
     /** Air under the spawn position is a missing floor, and must be named as such. */
-    private static void noFloorBlocksOnPlacement(GameTestHelper helper) {
+    @GameTest(templateNamespace = SpawnDetective.MOD_ID, template = "empty_5x5x5", timeoutTicks = 1)
+    public static void no_floor_blocks_on_placement(GameTestHelper helper) {
         BlockPos relative = new BlockPos(1, 2, 1);
         helper.setBlock(relative, Blocks.AIR);
         helper.setBlock(relative.below(), Blocks.AIR);
@@ -110,7 +109,8 @@ final class SpawnAuditTests {
      * the failure to light rather than to the floor. This is the headline case the
      * mod exists for.
      */
-    private static void brightChamberAttributesLight(GameTestHelper helper) {
+    @GameTest(templateNamespace = SpawnDetective.MOD_ID, template = "empty_5x5x5", timeoutTicks = 40)
+    public static void bright_chamber_attributes_light(GameTestHelper helper) {
         BlockPos spawn = carveChamber(helper);
         // Glowstone in the wall beside the spawn block, never under it: putting it in
         // the floor would also make the floor invalid and the test would pass for the
@@ -138,7 +138,8 @@ final class SpawnAuditTests {
     }
 
     /** The control for the case above: the same sealed chamber, unlit, must not fail on light. */
-    private static void darkChamberPasses(GameTestHelper helper) {
+    @GameTest(templateNamespace = SpawnDetective.MOD_ID, template = "empty_5x5x5", timeoutTicks = 40)
+    public static void dark_chamber_passes_spawn_rules(GameTestHelper helper) {
         BlockPos spawn = carveChamber(helper);
 
         helper.runAfterDelay(LIGHT_SETTLE_TICKS, () -> {
@@ -176,7 +177,8 @@ final class SpawnAuditTests {
      * them is the spawn reason - a controlled experiment rather than three
      * independent coin flips.
      */
-    private static void attributionIsStable(GameTestHelper helper) {
+    @GameTest(templateNamespace = SpawnDetective.MOD_ID, template = "empty_5x5x5", timeoutTicks = 40)
+    public static void attribution_is_stable(GameTestHelper helper) {
         BlockPos spawn = carveChamber(helper);
         helper.setBlock(spawn.offset(1, 0, 0), Blocks.GLOWSTONE);
 
@@ -215,7 +217,8 @@ final class SpawnAuditTests {
      * (player distance - a headless GameTest server has no player at all). The
      * verdict must pick light.
      */
-    private static void headlinePrefersStandingCause(GameTestHelper helper) {
+    @GameTest(templateNamespace = SpawnDetective.MOD_ID, template = "empty_5x5x5", timeoutTicks = 40)
+    public static void headline_prefers_standing_cause(GameTestHelper helper) {
         BlockPos spawn = carveChamber(helper);
         helper.setBlock(spawn.offset(1, 0, 0), Blocks.GLOWSTONE);
 
@@ -253,7 +256,8 @@ final class SpawnAuditTests {
      * registry offers through a sealed sky-less chamber and fails on any sky claim,
      * since a chamber with a valid floor leaves nothing for sky to explain.
      */
-    private static void noSkyBlameWithoutSkyRule(GameTestHelper helper) {
+    @GameTest(templateNamespace = SpawnDetective.MOD_ID, template = "empty_5x5x5", timeoutTicks = 40)
+    public static void no_sky_blame_without_sky_rule(GameTestHelper helper) {
         BlockPos spawn = carveChamber(helper);
 
         helper.runAfterDelay(LIGHT_SETTLE_TICKS, () -> {
@@ -313,9 +317,9 @@ final class SpawnAuditTests {
         return spawn;
     }
 
-    /** GameTest assertions take a Component and the current tick; this keeps call sites readable. */
+    /** GameTest assertions take a plain message here; this keeps call sites readable. */
     private static GameTestAssertException fail(GameTestHelper helper, String message) {
-        return new GameTestAssertException(Component.literal(message), (int) helper.getTick());
+        return new GameTestAssertException(message);
     }
 
     private static RuleResult blockerFor(GameTestHelper helper, BlockPos relative, EntityType<?> type) {

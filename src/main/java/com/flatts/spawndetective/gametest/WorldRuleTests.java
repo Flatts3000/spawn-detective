@@ -1,5 +1,9 @@
 package com.flatts.spawndetective.gametest;
 
+import com.flatts.spawndetective.SpawnDetective;
+import net.minecraft.gametest.framework.GameTest;
+import net.neoforged.neoforge.gametest.GameTestHolder;
+import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 import com.flatts.spawndetective.audit.AuditReport;
 import com.flatts.spawndetective.audit.PositionReport;
 import com.flatts.spawndetective.audit.RuleResult;
@@ -13,7 +17,7 @@ import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.gamerules.GameRules;
+import net.minecraft.world.level.GameRules;
 
 /**
  * The gates that apply to every mob at once, and the obstruction check that so
@@ -23,24 +27,21 @@ import net.minecraft.world.level.gamerules.GameRules;
  * one changes that state, asserts, and puts it back. A test that leaves a gamerule
  * flipped would silently rewrite the meaning of every test batched after it.
  */
-final class WorldRuleTests {
+@GameTestHolder(SpawnDetective.MOD_ID)
+@PrefixGameTestTemplate(false)
+public final class WorldRuleTests {
 
     private WorldRuleTests() {
     }
 
-    static void register() {
-        SDGameTests.test("gamerule_off_blocks_everything", 1, WorldRuleTests::gameruleOff);
-        SDGameTests.test("gamerule_off_is_situational", 40, WorldRuleTests::gameruleIsSituational);
-        SDGameTests.test("obstruction_names_the_entity_in_the_way", 20, WorldRuleTests::entityInTheWay);
-        SDGameTests.test("obstruction_reports_clear_space", 1, WorldRuleTests::clearSpace);
-    }
 
     /** doMobSpawning off stops every mob everywhere, so the report must lead with it. */
-    private static void gameruleOff(GameTestHelper helper) {
+    @GameTest(templateNamespace = SpawnDetective.MOD_ID, template = "empty_5x5x5", timeoutTicks = 1)
+    public static void gamerule_off_blocks_everything(GameTestHelper helper) {
         BlockPos spawn = floor(helper);
-        boolean original = helper.getLevel().getGameRules().get(GameRules.SPAWN_MOBS);
+        boolean original = helper.getLevel().getGameRules().getBoolean(GameRules.RULE_DOMOBSPAWNING);
         try {
-            helper.getLevel().getGameRules().set(GameRules.SPAWN_MOBS, false, helper.getLevel().getServer());
+            helper.getLevel().getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, helper.getLevel().getServer());
 
             PositionReport report = SpawnAuditor.auditPosition(helper.getLevel(), helper.absolutePos(spawn));
             RuleResult rule = report.world().stream()
@@ -55,7 +56,7 @@ final class WorldRuleTests {
                 throw fail(helper, "world gates reported open with mob spawning disabled");
             }
         } finally {
-            helper.getLevel().getGameRules().set(GameRules.SPAWN_MOBS, original, helper.getLevel().getServer());
+            helper.getLevel().getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(original, helper.getLevel().getServer());
         }
         helper.succeed();
     }
@@ -65,7 +66,8 @@ final class WorldRuleTests {
      * back on fixes everything. Reporting it as permanent would send someone digging
      * up their floor over a checkbox.
      */
-    private static void gameruleIsSituational(GameTestHelper helper) {
+    @GameTest(templateNamespace = SpawnDetective.MOD_ID, template = "empty_5x5x5", timeoutTicks = 40)
+    public static void gamerule_off_is_situational(GameTestHelper helper) {
         // A sealed dark chamber, so the gamerule is the ONLY permanent-looking thing
         // wrong. On an open plot the sky lights the floor, light blocks the spawn
         // permanently, and that correctly outranks a reversible setting - which makes
@@ -73,9 +75,9 @@ final class WorldRuleTests {
         BlockPos spawn = chamber(helper);
 
         helper.runAfterDelay(10L, () -> {
-            boolean original = helper.getLevel().getGameRules().get(GameRules.SPAWN_MOBS);
+            boolean original = helper.getLevel().getGameRules().getBoolean(GameRules.RULE_DOMOBSPAWNING);
             try {
-                helper.getLevel().getGameRules().set(GameRules.SPAWN_MOBS, false, helper.getLevel().getServer());
+                helper.getLevel().getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(false, helper.getLevel().getServer());
 
                 BlockPos absolute = helper.absolutePos(spawn);
                 PositionReport position = SpawnAuditor.auditPosition(helper.getLevel(), absolute);
@@ -92,7 +94,7 @@ final class WorldRuleTests {
                         + verdict.blocker().detail() + ")");
                 }
             } finally {
-                helper.getLevel().getGameRules().set(GameRules.SPAWN_MOBS, original, helper.getLevel().getServer());
+                helper.getLevel().getGameRules().getRule(GameRules.RULE_DOMOBSPAWNING).set(original, helper.getLevel().getServer());
             }
             helper.succeed();
         });
@@ -103,7 +105,8 @@ final class WorldRuleTests {
      * what. This is the mechanism behind the report once blaming a mod for a spawn
      * the player's own body was occupying.
      */
-    private static void entityInTheWay(GameTestHelper helper) {
+    @GameTest(templateNamespace = SpawnDetective.MOD_ID, template = "empty_5x5x5", timeoutTicks = 20)
+    public static void obstruction_names_the_entity_in_the_way(GameTestHelper helper) {
         BlockPos spawn = floor(helper);
         helper.spawn(EntityType.COW, spawn);
 
@@ -121,7 +124,8 @@ final class WorldRuleTests {
     }
 
     /** The control: an empty space reports clear, and never invents an occupant. */
-    private static void clearSpace(GameTestHelper helper) {
+    @GameTest(templateNamespace = SpawnDetective.MOD_ID, template = "empty_5x5x5", timeoutTicks = 1)
+    public static void obstruction_reports_clear_space(GameTestHelper helper) {
         BlockPos spawn = floor(helper);
 
         RuleResult obstruction = ruleFor(helper, spawn, EntityType.ZOMBIE, SpawnRule.SPAWN_OBSTRUCTED);
@@ -168,6 +172,6 @@ final class WorldRuleTests {
     }
 
     private static GameTestAssertException fail(GameTestHelper helper, String message) {
-        return new GameTestAssertException(Component.literal(message), (int) helper.getTick());
+        return new GameTestAssertException(message);
     }
 }

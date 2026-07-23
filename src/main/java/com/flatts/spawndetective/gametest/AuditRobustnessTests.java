@@ -1,5 +1,9 @@
 package com.flatts.spawndetective.gametest;
 
+import com.flatts.spawndetective.SpawnDetective;
+import net.minecraft.gametest.framework.GameTest;
+import net.neoforged.neoforge.gametest.GameTestHolder;
+import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 import com.flatts.spawndetective.audit.AuditReport;
 import com.flatts.spawndetective.audit.RuleResult;
 import com.flatts.spawndetective.audit.PositionReport;
@@ -29,22 +33,13 @@ import net.minecraft.world.entity.MobCategory;
  * always comes back. They run against every entity type in the registry, which
  * means in a modded environment they automatically cover that pack's mobs too.
  */
-final class AuditRobustnessTests {
+@GameTestHolder(SpawnDetective.MOD_ID)
+@PrefixGameTestTemplate(false)
+public final class AuditRobustnessTests {
 
     private AuditRobustnessTests() {
     }
 
-    static void register() {
-        SDGameTests.test("audit_survives_every_entity_type", 1, AuditRobustnessTests::everyEntityType);
-        SDGameTests.test("audit_survives_extreme_heights", 1, AuditRobustnessTests::extremeHeights);
-        SDGameTests.test("audit_survives_distant_unloaded_chunk", 1, AuditRobustnessTests::distantChunk);
-        SDGameTests.test("audit_covers_every_spawning_category", 1, AuditRobustnessTests::everyCategory);
-        SDGameTests.test("empty_categories_are_not_reported", 1, AuditRobustnessTests::emptyCategoriesHidden);
-        SDGameTests.test("every_candidate_resolves", 1, AuditRobustnessTests::everyCandidateResolves);
-        SDGameTests.test("verdict_never_contradicts_evidence", 1,
-            AuditRobustnessTests::verdictNeverContradictsEvidence);
-        SDGameTests.test("no_blame_without_a_culprit", 1, AuditRobustnessTests::noBlameWithoutACulprit);
-    }
 
     /**
      * Never accuse a mod of something no mod did.
@@ -65,7 +60,8 @@ final class AuditRobustnessTests {
      * <p>This suite runs with no spawn-affecting mods loaded, so nothing may ever be
      * attributed to one.
      */
-    private static void noBlameWithoutACulprit(GameTestHelper helper) {
+    @GameTest(templateNamespace = SpawnDetective.MOD_ID, template = "empty_5x5x5", timeoutTicks = 1)
+    public static void no_blame_without_a_culprit(GameTestHelper helper) {
         BlockPos pos = helper.absolutePos(new BlockPos(1, 2, 1));
 
         List<String> accused = new ArrayList<>();
@@ -105,7 +101,8 @@ final class AuditRobustnessTests {
      * {@link SpawnVerdict} is what makes this assertion possible at all - which is
      * the actual lesson: verdict logic is not presentation.
      */
-    private static void verdictNeverContradictsEvidence(GameTestHelper helper) {
+    @GameTest(templateNamespace = SpawnDetective.MOD_ID, template = "empty_5x5x5", timeoutTicks = 1)
+    public static void verdict_never_contradicts_evidence(GameTestHelper helper) {
         BlockPos pos = helper.absolutePos(new BlockPos(1, 2, 1));
         PositionReport position = SpawnAuditor.auditPosition(helper.getLevel(), pos);
 
@@ -145,7 +142,8 @@ final class AuditRobustnessTests {
      * true and together they were noise that buried the actual answer. Caps for a
      * category with nothing to spawn are not an answer to anyone's question.
      */
-    private static void emptyCategoriesHidden(GameTestHelper helper) {
+    @GameTest(templateNamespace = SpawnDetective.MOD_ID, template = "empty_5x5x5", timeoutTicks = 1)
+    public static void empty_categories_are_not_reported(GameTestHelper helper) {
         AuditReport report = SpawnAuditor.audit(helper.getLevel(), helper.absolutePos(new BlockPos(1, 2, 1)));
 
         for (AuditReport.Category category : report.categories()) {
@@ -179,7 +177,8 @@ final class AuditRobustnessTests {
      * The sweep survives because "what can spawn on this block" is a real question;
      * the averaging did not.
      */
-    private static void everyCandidateResolves(GameTestHelper helper) {
+    @GameTest(templateNamespace = SpawnDetective.MOD_ID, template = "empty_5x5x5", timeoutTicks = 1)
+    public static void every_candidate_resolves(GameTestHelper helper) {
         BlockPos pos = helper.absolutePos(new BlockPos(1, 2, 1));
         AuditReport report = SpawnAuditor.audit(helper.getLevel(), pos);
 
@@ -205,7 +204,8 @@ final class AuditRobustnessTests {
      * covers the awkward vanilla cases - non-mob types like arrows and item frames,
      * types with no spawn placement, and bosses.
      */
-    private static void everyEntityType(GameTestHelper helper) {
+    @GameTest(templateNamespace = SpawnDetective.MOD_ID, template = "empty_5x5x5", timeoutTicks = 1)
+    public static void audit_survives_every_entity_type(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         BlockPos pos = helper.absolutePos(new BlockPos(1, 2, 1));
 
@@ -234,16 +234,17 @@ final class AuditRobustnessTests {
      * standing on bedrock, and the level will happily return air for them. The
      * auditor must answer rather than throw.
      */
-    private static void extremeHeights(GameTestHelper helper) {
+    @GameTest(templateNamespace = SpawnDetective.MOD_ID, template = "empty_5x5x5", timeoutTicks = 1)
+    public static void audit_survives_extreme_heights(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         BlockPos here = helper.absolutePos(new BlockPos(1, 2, 1));
 
         int[] heights = {
-            level.getMinY() - 64,
-            level.getMinY(),
-            level.getMinY() + 1,
-            level.getMaxY(),
-            level.getMaxY() + 64
+            level.getMinBuildHeight() - 64,
+            level.getMinBuildHeight(),
+            level.getMinBuildHeight() + 1,
+            level.getMaxBuildHeight(),
+            level.getMaxBuildHeight() + 64
         };
 
         for (int y : heights) {
@@ -267,7 +268,8 @@ final class AuditRobustnessTests {
      * blocking the server thread on chunk generation. Players do this constantly -
      * they run the command with coordinates from a map, not from where they stand.
      */
-    private static void distantChunk(GameTestHelper helper) {
+    @GameTest(templateNamespace = SpawnDetective.MOD_ID, template = "empty_5x5x5", timeoutTicks = 1)
+    public static void audit_survives_distant_unloaded_chunk(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         BlockPos pos = helper.absolutePos(new BlockPos(1, 2, 1)).offset(2_000_000, 0, 2_000_000);
 
@@ -292,7 +294,8 @@ final class AuditRobustnessTests {
      * {@code values()} rather than from a hardcoded list, and must not report a
      * bogus cap failure for a category that declares no per-chunk maximum.
      */
-    private static void everyCategory(GameTestHelper helper) {
+    @GameTest(templateNamespace = SpawnDetective.MOD_ID, template = "empty_5x5x5", timeoutTicks = 1)
+    public static void audit_covers_every_spawning_category(GameTestHelper helper) {
         AuditReport report = SpawnAuditor.audit(helper.getLevel(), helper.absolutePos(new BlockPos(1, 2, 1)));
 
         long expected = java.util.Arrays.stream(MobCategory.values())
@@ -317,6 +320,6 @@ final class AuditRobustnessTests {
     }
 
     private static GameTestAssertException fail(GameTestHelper helper, String message) {
-        return new GameTestAssertException(Component.literal(message), (int) helper.getTick());
+        return new GameTestAssertException(message);
     }
 }

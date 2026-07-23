@@ -5,9 +5,10 @@ Guidance for Claude Code when working in this repository.
 ## Project
 
 Spawn Detective is a **single-purpose diagnostic mod**: it answers "why won't mobs
-spawn at this position?" definitively. Targets **NeoForge 26.1.2.76 on Minecraft
-26.1.2, Java 25** (`JavaLanguageVersion.of(25)`; on this machine set
-`JAVA_HOME="C:/Program Files/Java/jdk-25"` for every gradlew invocation).
+spawn at this position?" definitively. **This is the `mc-1.21.1` branch**, targeting
+**NeoForge 21.1.230 on Minecraft 1.21.1, Java 21** (`JavaLanguageVersion.of(21)`; on
+this machine set `JAVA_HOME="C:/Program Files/Java/jdk-21"` for every gradlew
+invocation).
 NeoForge-only, no Fabric port, no Architectury layer.
 
 **Two lines, and fixes flow new to old.** `main` is 26.1 and is where all work
@@ -18,7 +19,8 @@ Note this runs the opposite direction from Productive Frogs, where 1.21.1 was th
 mature line and fixes flowed old to new. The direction always runs from the line
 where development happens toward the line that trails it, and here that is 26.1.
 
-`docs/branch_policy.md` is the full contract: what each line accepts, how to write
+`docs/port_1_21_1.md` lists every API difference from `main` and is the first thing
+to read before cherry-picking. `docs/branch_policy.md` is the full contract: what each line accepts, how to write
 a cherry-pick commit, and the rule that neither line may report something the other
 cannot.
 
@@ -214,9 +216,10 @@ counting predicate calls, and the measurement showed there was nothing to fix.
 
 ## Conventions
 
-- **Java 25, 4-space indent, no tabs, no wildcard imports.** Imports alphabetical,
+- **Java 21, 4-space indent, no tabs, no wildcard imports.** Imports alphabetical,
   one block. Records for value types.
-- **`Identifier`, not `ResourceLocation`** - 26.1 renamed it.
+- **`ResourceLocation`, not `Identifier`** - the rename happened in 26.1, so `main`
+  uses the other name. Same for `MobSpawnType` here vs `EntitySpawnReason` there.
 - **No em-dashes or en-dashes anywhere**, including comments and commit messages.
 - **Conventional Commits**; one logical change per commit, body explains the why.
 - **Docs filenames are snake_case.**

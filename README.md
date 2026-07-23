@@ -11,7 +11,9 @@ rules; it calls them.
 It works for mobs from any mod, because it asks the game rather than hardcoding
 what it thinks the game does.
 
-- **Minecraft 26.1.2 / NeoForge 26.1.2.76 / Java 25**
+- **Minecraft 1.21.1 / NeoForge 21.1.230 / Java 21**
+- This is the `mc-1.21.1` branch. The active line is
+  [`main`](https://github.com/Flatts3000/spawn-detective/tree/main) (Minecraft 26.1).
 - Client and server. Safe on a dedicated server; safe in a pack.
 - Adds one item and one command. No world content, no worldgen, no recipes.
 
@@ -87,7 +89,8 @@ gamemaster permission, because the report exposes server-wide mob cap state.
 
 ## Installing
 
-Drop the jar in `mods/`. Needs **NeoForge for Minecraft 26.1.2** and nothing else.
+Drop the jar in `mods/`. Needs **NeoForge for Minecraft 1.21.1** and nothing else.
+Take the file whose name carries your game version: `spawndetective-1.21.1-*.jar`.
 
 Install it on **both sides**: the audit runs on the server (it reads live spawn
 state and fires the spawn events mods hook), and the report renders on the client.
@@ -100,12 +103,17 @@ neither is bundled.
 ## Building
 
 ```
-JAVA_HOME=/path/to/jdk-25 ./gradlew build              # compile + unit tests
-JAVA_HOME=/path/to/jdk-25 ./gradlew runGameTestServer  # in-world tests
-JAVA_HOME=/path/to/jdk-25 ./gradlew runClient          # dev client
+JAVA_HOME=/path/to/jdk-21 ./gradlew build              # compile + unit tests
+JAVA_HOME=/path/to/jdk-21 ./gradlew runGameTestServer  # in-world tests
+JAVA_HOME=/path/to/jdk-21 ./gradlew runClient          # dev client
 ```
 
 Both `build` and `runGameTestServer` are required to merge.
+
+Run one in-world test here with the declaring class in the id:
+`/test run spawndetective:worldruletests.gamerule_off_blocks_everything`.
+The annotation-based registration this version uses puts the class in the name;
+on `main` it is just the test name.
 
 ## How it stays correct
 

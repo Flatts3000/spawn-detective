@@ -1,5 +1,8 @@
 package com.flatts.spawndetective.gametest;
 
+import net.minecraft.gametest.framework.GameTest;
+import net.neoforged.neoforge.gametest.GameTestHolder;
+import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 import com.flatts.spawndetective.SpawnDetective;
 import com.flatts.spawndetective.audit.AuditReport;
 import com.flatts.spawndetective.audit.SpawnAuditor;
@@ -23,7 +26,9 @@ import net.minecraft.world.level.block.Blocks;
  * <p>Measured costs are logged on every run so a regression is visible in the trend
  * even when it stays under the ceiling.
  */
-final class PerformanceTests {
+@GameTestHolder(SpawnDetective.MOD_ID)
+@PrefixGameTestTemplate(false)
+public final class PerformanceTests {
 
     /**
      * Per-mob audit budget. Jade calls this on every look-at tick while a probe is
@@ -40,14 +45,9 @@ final class PerformanceTests {
     private PerformanceTests() {
     }
 
-    static void register() {
-        SDGameTests.test("perf_mob_audit_within_budget", 40, PerformanceTests::mobAudit);
-        SDGameTests.test("perf_position_audit_within_budget", 40, PerformanceTests::positionAudit);
-        SDGameTests.test("perf_full_sweep_within_budget", 100, PerformanceTests::fullSweep);
-        SDGameTests.test("perf_attribution_within_budget", 40, PerformanceTests::attributionPath);
-    }
 
-    private static void mobAudit(GameTestHelper helper) {
+    @GameTest(templateNamespace = SpawnDetective.MOD_ID, template = "empty_5x5x5", timeoutTicks = 40)
+    public static void perf_mob_audit_within_budget(GameTestHelper helper) {
         BlockPos pos = chamber(helper);
         helper.runAfterDelay(10L, () -> {
             BlockPos absolute = helper.absolutePos(pos);
@@ -77,7 +77,8 @@ final class PerformanceTests {
      * roughly three times a clear one - and blocked is the case people actually
      * point the probe at.
      */
-    private static void attributionPath(GameTestHelper helper) {
+    @GameTest(templateNamespace = SpawnDetective.MOD_ID, template = "empty_5x5x5", timeoutTicks = 40)
+    public static void perf_attribution_within_budget(GameTestHelper helper) {
         BlockPos pos = chamber(helper);
         helper.setBlock(pos.offset(1, 0, 0), Blocks.GLOWSTONE);
 
@@ -98,7 +99,8 @@ final class PerformanceTests {
         });
     }
 
-    private static void positionAudit(GameTestHelper helper) {
+    @GameTest(templateNamespace = SpawnDetective.MOD_ID, template = "empty_5x5x5", timeoutTicks = 40)
+    public static void perf_position_audit_within_budget(GameTestHelper helper) {
         BlockPos pos = chamber(helper);
         helper.runAfterDelay(10L, () -> {
             BlockPos absolute = helper.absolutePos(pos);
@@ -122,7 +124,8 @@ final class PerformanceTests {
      * command runs it, so it may cost more - but it still blocks the server thread,
      * and "a command that freezes the server" is a bug report either way.
      */
-    private static void fullSweep(GameTestHelper helper) {
+    @GameTest(templateNamespace = SpawnDetective.MOD_ID, template = "empty_5x5x5", timeoutTicks = 100)
+    public static void perf_full_sweep_within_budget(GameTestHelper helper) {
         BlockPos pos = chamber(helper);
         helper.runAfterDelay(10L, () -> {
             BlockPos absolute = helper.absolutePos(pos);
@@ -174,6 +177,6 @@ final class PerformanceTests {
     }
 
     private static GameTestAssertException fail(GameTestHelper helper, String message) {
-        return new GameTestAssertException(Component.literal(message), (int) helper.getTick());
+        return new GameTestAssertException(message);
     }
 }

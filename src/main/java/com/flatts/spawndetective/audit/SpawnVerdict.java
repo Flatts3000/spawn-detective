@@ -3,7 +3,7 @@ package com.flatts.spawndetective.audit;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Stream;
-import org.jspecify.annotations.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * The single answer to "would this mob spawn at this block, right now".

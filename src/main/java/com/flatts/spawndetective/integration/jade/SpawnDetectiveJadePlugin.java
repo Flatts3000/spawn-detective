@@ -12,14 +12,14 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Block;
-import org.jspecify.annotations.Nullable;
+import org.jetbrains.annotations.Nullable;
 import snownee.jade.api.Accessor;
 import snownee.jade.api.BlockAccessor;
 import snownee.jade.api.IBlockComponentProvider;
@@ -51,8 +51,8 @@ import snownee.jade.api.config.IPluginConfig;
 @WailaPlugin
 public final class SpawnDetectiveJadePlugin implements IWailaPlugin {
 
-    private static final Identifier UID =
-        Identifier.fromNamespaceAndPath(SpawnDetective.MOD_ID, "spawn_check");
+    private static final ResourceLocation UID =
+        ResourceLocation.fromNamespaceAndPath(SpawnDetective.MOD_ID, "spawn_check");
 
     /** NBT keys for the server -> client hop. Short, because this rides every look. */
     private static final String KEY_MOB = "mob";
@@ -66,7 +66,7 @@ public final class SpawnDetectiveJadePlugin implements IWailaPlugin {
      * provider, so the server half registers through this single-interface
      * delegate sharing the client half's UID.
      */
-    private record DataDelegate(Identifier uid) implements IServerDataProvider<BlockAccessor> {
+    private record DataDelegate(ResourceLocation uid) implements IServerDataProvider<BlockAccessor> {
         @Override
         public void appendServerData(CompoundTag data, BlockAccessor accessor) {
             SpawnCheckProvider.append(data, accessor);
@@ -78,7 +78,7 @@ public final class SpawnDetectiveJadePlugin implements IWailaPlugin {
         }
 
         @Override
-        public Identifier getUid() {
+        public ResourceLocation getUid() {
             return this.uid;
         }
     }
@@ -121,9 +121,9 @@ public final class SpawnDetectiveJadePlugin implements IWailaPlugin {
             if (!data.contains(KEY_TONE)) {
                 return;
             }
-            String mob = data.getStringOr(KEY_MOB, "");
-            SpawnVerdict.Tone tone = toneOf(data.getIntOr(KEY_TONE, 0));
-            String reason = data.getStringOr(KEY_REASON, "");
+            String mob = data.getString(KEY_MOB);
+            SpawnVerdict.Tone tone = toneOf(data.getInt(KEY_TONE));
+            String reason = data.getString(KEY_REASON);
 
             tooltip.add(Component.literal(mob + ": ")
                 .withStyle(ChatFormatting.GRAY)
@@ -134,7 +134,7 @@ public final class SpawnDetectiveJadePlugin implements IWailaPlugin {
         }
 
         @Override
-        public Identifier getUid() {
+        public ResourceLocation getUid() {
             return UID;
         }
 

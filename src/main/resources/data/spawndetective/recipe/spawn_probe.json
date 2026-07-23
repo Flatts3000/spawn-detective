@@ -12,8 +12,12 @@
     "I"
   ],
   "key": {
-    "S": "#minecraft:saplings",
-    "I": "minecraft:stick"
+    "S": {
+      "tag": "minecraft:saplings"
+    },
+    "I": {
+      "item": "minecraft:stick"
+    }
   },
   "result": {
     "id": "spawndetective:spawn_probe",

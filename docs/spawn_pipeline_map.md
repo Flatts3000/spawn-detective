@@ -10,7 +10,9 @@ That claim survives exactly as long as this table stays accurate.
 drifted. A rule that quietly stops matching its call site turns the mod from a
 diagnostic into a confident liar, which is worse than shipping nothing.
 
-Verified against **Minecraft 26.1.2 / NeoForge 26.1.2.76**.
+Verified against **Minecraft 1.21.1 / NeoForge 21.1.230** on this branch.
+`main` verifies the same table against 26.1.2. Both lines must report the same
+rules; where a call site moved between versions, the row notes it.
 
 ## Order of evaluation
 

@@ -5,6 +5,7 @@ import com.flatts.spawndetective.audit.SpawnAuditor;
 import com.flatts.spawndetective.network.ShowPositionPayload;
 import com.flatts.spawndetective.registry.SDDataComponents;
 import com.flatts.spawndetective.report.ChatReport;
+import java.util.List;
 import java.util.function.Consumer;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
@@ -14,10 +15,10 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
+import net.minecraft.world.InteractionResultHolder;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.component.TooltipDisplay;
 import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.level.Level;
@@ -85,11 +86,11 @@ public class SpawnProbeItem extends Item {
      * you have walked away from the block you anchored.
      */
     @Override
-    public InteractionResult use(Level level, Player player, InteractionHand hand) {
-        if (!(level instanceof ServerLevel serverLevel) || !(player instanceof ServerPlayer serverPlayer)) {
-            return InteractionResult.SUCCESS;
-        }
+    public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
         ItemStack stack = player.getItemInHand(hand);
+        if (!(level instanceof ServerLevel serverLevel) || !(player instanceof ServerPlayer serverPlayer)) {
+            return InteractionResultHolder.success(stack);
+        }
 
         if (player.isSecondaryUseActive()) {
             if (stack.has(SDDataComponents.anchor())) {
@@ -97,11 +98,11 @@ public class SpawnProbeItem extends Item {
                 serverPlayer.sendSystemMessage(
                     Component.translatable("spawndetective.anchor.cleared").withStyle(ChatFormatting.GRAY));
             }
-            return InteractionResult.SUCCESS;
+            return InteractionResultHolder.success(stack);
         }
 
         read(serverLevel, serverPlayer, stack);
-        return InteractionResult.SUCCESS;
+        return InteractionResultHolder.success(stack);
     }
 
     /** Read the anchored block, or explain how to anchor one. */
@@ -116,7 +117,7 @@ public class SpawnProbeItem extends Item {
         // same numbers in the wrong one would be a confident wrong answer.
         if (!anchor.dimension().equals(level.dimension())) {
             player.sendSystemMessage(Component.translatable("spawndetective.anchor.elsewhere",
-                anchor.dimension().identifier().toString()).withStyle(ChatFormatting.YELLOW));
+                anchor.dimension().location().toString()).withStyle(ChatFormatting.YELLOW));
             return;
         }
         open(level, player, anchor.pos());
@@ -141,9 +142,12 @@ public class SpawnProbeItem extends Item {
      */
     @Override
     public void appendHoverText(
-        ItemStack stack, TooltipContext context, TooltipDisplay display,
-        Consumer<Component> lines, TooltipFlag flag
+        ItemStack stack, TooltipContext context, List<Component> tooltip, TooltipFlag flag
     ) {
+        // 1.21.1 hands the tooltip in as a list rather than a sink. Adapting here keeps
+        // the body identical to main's, so a change to the wording ports as a clean
+        // cherry-pick instead of a rewrite.
+        Consumer<Component> lines = tooltip::add;
         GlobalPos anchor = stack.get(SDDataComponents.anchor());
         if (anchor == null) {
             lines.accept(Component.translatable("spawndetective.probe.tip.anchor").withStyle(ChatFormatting.GRAY));

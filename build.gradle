@@ -4,7 +4,9 @@ plugins {
     // CurseForgeGradle wraps the upload API so `./gradlew publishCurseForge` pushes
     // a new file to the project page. Token comes from .env (gitignored), an env
     // var, or a gradle property - never from this file.
-    id 'net.darkhax.curseforgegradle' version '1.2.30'
+    // Pinned to 1.1.26 on this line: 1.2.x requires a Java 25 Gradle daemon,
+    // and this branch builds on Java 21. Same API surface for what we use.
+    id 'net.darkhax.curseforgegradle' version '1.1.26'
 }
 
 base {
@@ -17,7 +19,7 @@ group = mod_group_id
 version = mod_version
 
 java {
-    toolchain.languageVersion = JavaLanguageVersion.of(25)
+    toolchain.languageVersion = JavaLanguageVersion.of(21)
 }
 
 neoForge {
@@ -82,15 +84,15 @@ dependencies {
     // JEI - compileOnly API so the @JeiPlugin class compiles, runtimeOnly jar so dev
     // sessions actually show the info page. This mod has no recipes; the plugin
     // exists to document the item's gestures where people look for item help.
-    compileOnly "mezz.jei:jei-26.1.2-neoforge-api:29.6.2.38"
-    runtimeOnly "mezz.jei:jei-26.1.2-neoforge:29.6.2.38"
+    compileOnly "mezz.jei:jei-1.21.1-neoforge-api:19.27.0.340"
+    runtimeOnly "mezz.jei:jei-1.21.1-neoforge:19.27.0.340"
 
     // Jade - compileOnly ONLY. Jade stays a manual run/mods drop-in at runtime;
     // adding it runtimeOnly would double-load against the drop-in and trip
     // NeoForge's duplicate-modid check. When Jade is present it discovers our
     // plugin; when it is absent the class is simply never loaded.
-    // Modrinth gWlwZzoj = Jade 26.1.8+neoforge.
-    compileOnly "maven.modrinth:jade:gWlwZzoj"
+    // Modrinth yd8FKCmx = Jade for 1.21.1 neoforge.
+    compileOnly "maven.modrinth:jade:yd8FKCmx"
 
     testImplementation platform('org.junit:junit-bom:5.11.4')
     testImplementation 'org.junit.jupiter:junit-jupiter'
@@ -140,7 +142,7 @@ tasks.processResources {
 }
 
 tasks.withType(JavaCompile).configureEach {
-    options.release = 25
+    options.release = 21
 }
 
 jar {
@@ -242,7 +244,7 @@ if (findProperty('curseForgeProjectId')) {
         primary.releaseType = 'alpha'
         primary.addGameVersion(minecraft_version)
         primary.addModLoader('NeoForge')
-        primary.addJavaVersion('Java 25')
+        primary.addJavaVersion('Java 21')
         // Both sides: the audit runs server-side and the screen renders client-side,
         // so a client-only tag would have people installing it where it cannot work.
         primary.addEnvironment('Client', 'Server')

@@ -1,5 +1,9 @@
 package com.flatts.spawndetective.gametest;
 
+import com.flatts.spawndetective.SpawnDetective;
+import net.minecraft.gametest.framework.GameTest;
+import net.neoforged.neoforge.gametest.GameTestHolder;
+import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 import com.flatts.spawndetective.audit.AuditReport;
 import com.flatts.spawndetective.audit.RuleResult;
 import com.flatts.spawndetective.audit.SpawnAuditor;
@@ -23,25 +27,17 @@ import net.minecraft.world.level.block.Blocks;
  *
  * <p>Every case here is deterministic: no light, no RNG, no caps. Just geometry.
  */
-final class PlacementRuleTests {
+@GameTestHolder(SpawnDetective.MOD_ID)
+@PrefixGameTestTemplate(false)
+public final class PlacementRuleTests {
 
     private PlacementRuleTests() {
     }
 
-    static void register() {
-        SDGameTests.test("placement_names_solid_block", 1, PlacementRuleTests::solidBlock);
-        SDGameTests.test("placement_names_missing_floor", 1, PlacementRuleTests::missingFloor);
-        SDGameTests.test("placement_names_missing_headroom", 1, PlacementRuleTests::missingHeadroom);
-        SDGameTests.test("placement_names_fluid", 1, PlacementRuleTests::fluidInTheSpace);
-        SDGameTests.test("placement_names_signal_source", 1, PlacementRuleTests::signalSource);
-        SDGameTests.test("placement_water_mob_needs_water", 1, PlacementRuleTests::waterMobOnLand);
-        SDGameTests.test("placement_water_mob_accepts_water", 1, PlacementRuleTests::waterMobInWater);
-        SDGameTests.test("placement_unrestricted_mob_accepts_anywhere", 1, PlacementRuleTests::unrestricted);
-        SDGameTests.test("hitbox_rejects_a_mob_too_tall", 1, PlacementRuleTests::tooTall);
-    }
 
     /** A spawn position filled with stone: solid, and it should say so. */
-    private static void solidBlock(GameTestHelper helper) {
+    @GameTest(templateNamespace = SpawnDetective.MOD_ID, template = "empty_5x5x5", timeoutTicks = 1)
+    public static void placement_names_solid_block(GameTestHelper helper) {
         BlockPos spawn = floor(helper);
         helper.setBlock(spawn, Blocks.STONE);
 
@@ -50,7 +46,8 @@ final class PlacementRuleTests {
     }
 
     /** Nothing to stand on. */
-    private static void missingFloor(GameTestHelper helper) {
+    @GameTest(templateNamespace = SpawnDetective.MOD_ID, template = "empty_5x5x5", timeoutTicks = 1)
+    public static void placement_names_missing_floor(GameTestHelper helper) {
         BlockPos spawn = floor(helper);
         helper.setBlock(spawn.below(), Blocks.AIR);
 
@@ -59,7 +56,8 @@ final class PlacementRuleTests {
     }
 
     /** A valid floor but a ceiling one block up: a zombie is two blocks tall. */
-    private static void missingHeadroom(GameTestHelper helper) {
+    @GameTest(templateNamespace = SpawnDetective.MOD_ID, template = "empty_5x5x5", timeoutTicks = 1)
+    public static void placement_names_missing_headroom(GameTestHelper helper) {
         BlockPos spawn = floor(helper);
         helper.setBlock(spawn.above(), Blocks.STONE);
 
@@ -68,7 +66,8 @@ final class PlacementRuleTests {
     }
 
     /** Water in the space a land mob would stand in. */
-    private static void fluidInTheSpace(GameTestHelper helper) {
+    @GameTest(templateNamespace = SpawnDetective.MOD_ID, template = "empty_5x5x5", timeoutTicks = 1)
+    public static void placement_names_fluid(GameTestHelper helper) {
         BlockPos spawn = floor(helper);
         helper.setBlock(spawn, Blocks.WATER);
 
@@ -81,7 +80,8 @@ final class PlacementRuleTests {
      * "why is this corner of my farm dead" - which is exactly the sort of thing this
      * mod exists to surface.
      */
-    private static void signalSource(GameTestHelper helper) {
+    @GameTest(templateNamespace = SpawnDetective.MOD_ID, template = "empty_5x5x5", timeoutTicks = 1)
+    public static void placement_names_signal_source(GameTestHelper helper) {
         BlockPos spawn = floor(helper);
         helper.setBlock(spawn, Blocks.REDSTONE_TORCH);
 
@@ -90,7 +90,8 @@ final class PlacementRuleTests {
     }
 
     /** A water mob on dry land fails placement, and the reason names water. */
-    private static void waterMobOnLand(GameTestHelper helper) {
+    @GameTest(templateNamespace = SpawnDetective.MOD_ID, template = "empty_5x5x5", timeoutTicks = 1)
+    public static void placement_water_mob_needs_water(GameTestHelper helper) {
         BlockPos spawn = floor(helper);
 
         RuleResult placement = ruleFor(helper, spawn, EntityType.COD, SpawnRule.PLACEMENT);
@@ -102,7 +103,8 @@ final class PlacementRuleTests {
     }
 
     /** The same mob in water passes: the rule is about the medium, not the mob. */
-    private static void waterMobInWater(GameTestHelper helper) {
+    @GameTest(templateNamespace = SpawnDetective.MOD_ID, template = "empty_5x5x5", timeoutTicks = 1)
+    public static void placement_water_mob_accepts_water(GameTestHelper helper) {
         BlockPos spawn = floor(helper);
         helper.setBlock(spawn, Blocks.WATER);
         helper.setBlock(spawn.above(), Blocks.WATER);
@@ -115,7 +117,8 @@ final class PlacementRuleTests {
     }
 
     /** A mob with no placement restrictions passes regardless of the geometry. */
-    private static void unrestricted(GameTestHelper helper) {
+    @GameTest(templateNamespace = SpawnDetective.MOD_ID, template = "empty_5x5x5", timeoutTicks = 1)
+    public static void placement_unrestricted_mob_accepts_anywhere(GameTestHelper helper) {
         BlockPos spawn = floor(helper);
 
         RuleResult placement = ruleFor(helper, spawn, EntityType.PHANTOM, SpawnRule.PLACEMENT);
@@ -130,7 +133,8 @@ final class PlacementRuleTests {
      * one-block gap has a valid floor and clear headroom for something short, and
      * still cannot hold something tall.
      */
-    private static void tooTall(GameTestHelper helper) {
+    @GameTest(templateNamespace = SpawnDetective.MOD_ID, template = "empty_5x5x5", timeoutTicks = 1)
+    public static void hitbox_rejects_a_mob_too_tall(GameTestHelper helper) {
         BlockPos spawn = floor(helper);
         helper.setBlock(spawn.above(), Blocks.STONE);
 
@@ -185,6 +189,6 @@ final class PlacementRuleTests {
     }
 
     private static GameTestAssertException fail(GameTestHelper helper, String message) {
-        return new GameTestAssertException(Component.literal(message), (int) helper.getTick());
+        return new GameTestAssertException(message);
     }
 }

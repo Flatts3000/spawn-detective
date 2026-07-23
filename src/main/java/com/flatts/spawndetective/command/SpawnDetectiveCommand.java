@@ -57,7 +57,8 @@ public final class SpawnDetectiveCommand {
 
     private static void register(CommandDispatcher<CommandSourceStack> dispatcher, CommandBuildContext build) {
         dispatcher.register(Commands.literal("spawndetective")
-            .requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS))
+            .requires((java.util.function.Predicate<net.minecraft.commands.CommandSourceStack>)
+                source -> source.hasPermission(Commands.LEVEL_GAMEMASTERS))
             .executes(ctx -> auditAll(ctx.getSource(), callerPos(ctx)))
             .then(forArgument(build, SpawnDetectiveCommand::callerPos))
             .then(Commands.literal("at")

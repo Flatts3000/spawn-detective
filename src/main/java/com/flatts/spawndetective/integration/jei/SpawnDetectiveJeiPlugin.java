@@ -6,7 +6,7 @@ import mezz.jei.api.IModPlugin;
 import mezz.jei.api.JeiPlugin;
 import mezz.jei.api.registration.IRecipeRegistration;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 
 /**
  * JEI integration: an info page for the Spawn Probe.
@@ -22,11 +22,11 @@ import net.minecraft.resources.Identifier;
 @JeiPlugin
 public class SpawnDetectiveJeiPlugin implements IModPlugin {
 
-    private static final Identifier UID =
-        Identifier.fromNamespaceAndPath(SpawnDetective.MOD_ID, "jei");
+    private static final ResourceLocation UID =
+        ResourceLocation.fromNamespaceAndPath(SpawnDetective.MOD_ID, "jei");
 
     @Override
-    public Identifier getPluginUid() {
+    public ResourceLocation getPluginUid() {
         return UID;
     }
 

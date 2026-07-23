@@ -7,11 +7,10 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.util.RandomSource;
-import net.minecraft.util.random.Weighted;
-import net.minecraft.util.random.WeightedList;
+import net.minecraft.util.random.WeightedRandomList;
 import net.minecraft.world.Difficulty;
 import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.EntitySpawnReason;
+import net.minecraft.world.entity.MobSpawnType;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.MobCategory;
@@ -27,7 +26,7 @@ import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.biome.MobSpawnSettings;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.ChunkGenerator;
-import net.minecraft.world.level.gamerules.GameRules;
+import net.minecraft.world.level.GameRules;
 import net.minecraft.world.level.levelgen.structure.BuiltinStructures;
 import net.minecraft.world.level.levelgen.structure.Structure;
 import net.minecraft.world.level.levelgen.structure.StructureSpawnOverride;
@@ -37,7 +36,7 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.server.level.ServerLevel;
 import net.neoforged.neoforge.event.EventHooks;
-import org.jspecify.annotations.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Replays {@link NaturalSpawner}'s decision chain against one block position and
@@ -113,7 +112,7 @@ public final class SpawnAuditor {
     public static PositionReport auditPosition(ServerLevel level, BlockPos pos) {
         Holder<Biome> biome = level.getBiome(pos);
         return new PositionReport(
-            level.dimension().identifier().toString(),
+            level.dimension().location().toString(),
             pos,
             biome.getRegisteredName(),
             auditWorldAndChunk(level, pos),
@@ -128,7 +127,7 @@ public final class SpawnAuditor {
      * far better prompt than a blank field.
      */
     private static List<EntityType<?>> suggestedTypes(ServerLevel level, BlockPos pos, Holder<Biome> biome) {
-        List<Weighted<MobSpawnSettings.SpawnerData>> entries = new ArrayList<>();
+        List<MobSpawnSettings.SpawnerData> entries = new ArrayList<>();
         for (MobCategory category : new MobCategory[] {MobCategory.MONSTER, MobCategory.CREATURE}) {
             try {
                 entries.addAll(mobsAt(level, category, pos, biome).unwrap());
@@ -136,11 +135,11 @@ public final class SpawnAuditor {
                 // A custom generator threw; the picker simply offers fewer leads.
             }
         }
-        entries.sort(Comparator.comparingInt(Weighted<MobSpawnSettings.SpawnerData>::weight).reversed());
+        entries.sort(Comparator.comparingInt((MobSpawnSettings.SpawnerData d) -> d.getWeight().asInt()).reversed());
 
         List<EntityType<?>> types = new ArrayList<>();
-        for (Weighted<MobSpawnSettings.SpawnerData> entry : entries) {
-            EntityType<?> type = entry.value().type();
+        for (MobSpawnSettings.SpawnerData entry : entries) {
+            EntityType<?> type = entry.type;
             if (!types.contains(type)) {
                 types.add(type);
             }
@@ -174,7 +173,7 @@ public final class SpawnAuditor {
         }
 
         return new AuditReport(
-            level.dimension().identifier().toString(), pos, biome.getRegisteredName(), world, categories);
+            level.dimension().location().toString(), pos, biome.getRegisteredName(), world, categories);
     }
 
     // ------------------------------------------------------------------ world
@@ -189,10 +188,10 @@ public final class SpawnAuditor {
      */
     private static List<RuleResult> auditWorldAndChunk(ServerLevel level, BlockPos pos) {
         List<RuleResult> results = new ArrayList<>();
-        ChunkPos chunkPos = ChunkPos.containing(pos);
+        ChunkPos chunkPos = new ChunkPos(pos);
 
         // ServerChunkCache.tickChunks: doMobSpawning false empties the category list.
-        boolean doMobSpawning = level.getGameRules().get(GameRules.SPAWN_MOBS);
+        boolean doMobSpawning = level.getGameRules().getBoolean(GameRules.RULE_DOMOBSPAWNING);
         results.add(RuleResult.of(SpawnRule.GAMERULE_MOB_SPAWNING, doMobSpawning,
             "true", "doMobSpawning is true",
             "false", "doMobSpawning is false - nothing spawns naturally anywhere in this world"));
@@ -213,14 +212,14 @@ public final class SpawnAuditor {
             "inside", "inside the world border",
             "outside", "outside the world border - nothing spawns beyond it"));
 
-        boolean canTick = level.canSpawnEntitiesInChunk(chunkPos);
+        boolean canTick = level.isNaturalSpawningAllowed(chunkPos);
         results.add(RuleResult.of(SpawnRule.CHUNK_ENTITY_TICKING, canTick || !withinBorder,
             chunkPos.toString(), "chunk " + chunkPos + " ticks entities",
             chunkPos + " idle",
             "chunk " + chunkPos + " is not entity-ticking (outside simulation distance, or not loaded)"));
 
         // ChunkMap.anyPlayerCloseEnoughForSpawning - the 128-block spawn sphere.
-        boolean playerNear = level.anyPlayerCloseEnoughForSpawning(pos);
+        boolean playerNear = level.getChunkSource().chunkMap.anyPlayerCloseEnoughForSpawning(chunkPos);
         results.add(RuleResult.of(SpawnRule.PLAYER_IN_SPAWN_RANGE, playerNear,
             "yes", "a player is within 128 blocks of this chunk",
             "none within 128", "no player within 128 blocks of this chunk - it is never picked for a spawn attempt"));
@@ -252,13 +251,12 @@ public final class SpawnAuditor {
         }
 
         // The same method's world-spawn check.
-        LevelData.RespawnData respawn = level.getRespawnData();
+        BlockPos worldSpawn = level.getSharedSpawnPos();
         Vec3 center = new Vec3(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5);
-        boolean nearWorldSpawn = respawn.dimension() == level.dimension()
-            && respawn.pos().closerToCenterThan(center, 24.0);
+        boolean nearWorldSpawn = worldSpawn.closerToCenterThan(center, 24.0);
         results.add(RuleResult.of(SpawnRule.WORLD_SPAWN_DISTANCE, !nearWorldSpawn,
             "outside", "outside the world spawn bubble",
-            "inside", "within 24 blocks of the world spawn point " + respawn.pos()));
+            "inside", "within 24 blocks of the world spawn point " + worldSpawn));
 
         return results;
     }
@@ -275,7 +273,7 @@ public final class SpawnAuditor {
         // biome offers nothing for has exactly one honest thing to say - and
         // reporting "the water_creature cap is full" in a forest that has no water
         // creatures is noise that buries the real answer.
-        List<Weighted<MobSpawnSettings.SpawnerData>> entries;
+        List<MobSpawnSettings.SpawnerData> entries;
         try {
             entries = mobsAt(level, category, pos, biome).unwrap();
         } catch (Throwable t) {
@@ -318,15 +316,15 @@ public final class SpawnAuditor {
                     + " spawnable chunks"));
 
             // LocalMobCapCalculator.canSpawn - the per-player slice of the cap.
-            rules.add(auditLocalCap(state, category, ChunkPos.containing(pos)));
+            rules.add(auditLocalCap(state, category, new ChunkPos(pos)));
         }
 
-        int totalWeight = entries.stream().mapToInt(Weighted::weight).sum();
+        int totalWeight = entries.stream().mapToInt(d -> d.getWeight().asInt()).sum();
 
         // Heaviest entries first: if the list gets truncated, what survives is what a
         // spawn attempt would most likely have rolled.
-        List<Weighted<MobSpawnSettings.SpawnerData>> ordered = new ArrayList<>(entries);
-        ordered.sort(Comparator.comparingInt(Weighted<MobSpawnSettings.SpawnerData>::weight).reversed());
+        List<MobSpawnSettings.SpawnerData> ordered = new ArrayList<>(entries);
+        ordered.sort(Comparator.comparingInt((MobSpawnSettings.SpawnerData d) -> d.getWeight().asInt()).reversed());
 
         boolean truncated = ordered.size() > MAX_CANDIDATES_PER_CATEGORY;
         rules.add(RuleResult.pass(SpawnRule.BIOME_SPAWN_LIST,
@@ -339,9 +337,9 @@ public final class SpawnAuditor {
         }
 
         List<AuditReport.Candidate> candidates = new ArrayList<>(ordered.size());
-        for (Weighted<MobSpawnSettings.SpawnerData> entry : ordered) {
+        for (MobSpawnSettings.SpawnerData entry : ordered) {
             candidates.add(auditCandidate(
-                level, pos, biome, category, entry.value().type(), entry.weight(), totalWeight));
+                level, pos, biome, category, entry.type, entry.getWeight().asInt(), totalWeight));
         }
 
         return new AuditReport.Category(category, rules, candidates);
@@ -369,7 +367,7 @@ public final class SpawnAuditor {
      * {@code NaturalSpawner.mobsAt} - the biome list, with the nether-fortress
      * override and NeoForge's PotentialSpawns event applied exactly as vanilla does.
      */
-    private static WeightedList<MobSpawnSettings.SpawnerData> mobsAt(
+    private static WeightedRandomList<MobSpawnSettings.SpawnerData> mobsAt(
         ServerLevel level, MobCategory category, BlockPos pos, Holder<Biome> biome
     ) {
         StructureManager structureManager = level.structureManager();
@@ -378,7 +376,9 @@ public final class SpawnAuditor {
         if (NaturalSpawner.isInNetherFortressBounds(pos, level, category, structureManager)) {
             Structure fortress = level.registryAccess()
                 .lookupOrThrow(Registries.STRUCTURE)
-                .getValue(BuiltinStructures.FORTRESS);
+                .get(BuiltinStructures.FORTRESS)
+                .map(net.minecraft.core.Holder::value)
+                .orElse(null);
             if (fortress != null) {
                 StructureSpawnOverride override = fortress.spawnOverrides().get(MobCategory.MONSTER);
                 if (override != null) {
@@ -603,7 +603,7 @@ public final class SpawnAuditor {
         }
         long seed = seeds[0];
 
-        int natural = sampleAcross(level, pos, type, EntitySpawnReason.NATURAL, seeds);
+        int natural = sampleAcross(level, pos, type, MobSpawnType.NATURAL, seeds);
         if (natural == SAMPLE_THREW) {
             return RuleResult.unknown(SpawnRule.SPAWN_RULES,
                 "this mob's spawn predicate raised an exception - report it to that mod, not this one");
@@ -645,8 +645,8 @@ public final class SpawnAuditor {
     private static Cause attributeSpawnRuleFailure(
         ServerLevel level, BlockPos pos, EntityType<?> type, long[] seeds, int natural
     ) {
-        int asSpawner = sampleAcross(level, pos, type, EntitySpawnReason.SPAWNER, seeds);
-        int asTrial = sampleAcross(level, pos, type, EntitySpawnReason.TRIAL_SPAWNER, seeds);
+        int asSpawner = sampleAcross(level, pos, type, MobSpawnType.SPAWNER, seeds);
+        int asTrial = sampleAcross(level, pos, type, MobSpawnType.TRIAL_SPAWNER, seeds);
 
         if (asSpawner == SAMPLE_THREW || asTrial == SAMPLE_THREW) {
             return new Cause("not attributable",
@@ -695,7 +695,7 @@ public final class SpawnAuditor {
 
     /** Sum {@link #sample} over every seed, propagating a throw as unmeasurable. */
     private static int sampleAcross(
-        ServerLevel level, BlockPos pos, EntityType<?> type, EntitySpawnReason reason, long[] seeds
+        ServerLevel level, BlockPos pos, EntityType<?> type, MobSpawnType reason, long[] seeds
     ) {
         int total = 0;
         for (long seed : seeds) {
@@ -710,7 +710,7 @@ public final class SpawnAuditor {
 
     @SuppressWarnings({"unchecked", "rawtypes"})
     private static int sample(
-        ServerLevel level, BlockPos pos, EntityType<?> type, EntitySpawnReason reason, long seed
+        ServerLevel level, BlockPos pos, EntityType<?> type, MobSpawnType reason, long seed
     ) {
         RandomSource random = RandomSource.create(seed);
         int passes = 0;
@@ -785,7 +785,7 @@ public final class SpawnAuditor {
     ) {
         Mob mob;
         try {
-            Entity entity = type.create(level, EntitySpawnReason.NATURAL);
+            Entity entity = type.create(level);
             if (!(entity instanceof Mob created)) {
                 return List.of(
                     RuleResult.skipped(SpawnRule.SPAWN_OBSTRUCTED, "not a Mob"),
@@ -799,7 +799,7 @@ public final class SpawnAuditor {
         }
 
         try {
-            mob.snapTo(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5, 0.0F, 0.0F);
+            mob.moveTo(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5, 0.0F, 0.0F);
 
             // Vanilla's own halves, called directly. EventHooks.checkSpawnPosition
             // falls back to exactly this pair when no mod overrides the result, so
@@ -808,7 +808,7 @@ public final class SpawnAuditor {
             boolean mobRules;
             boolean unobstructed;
             try {
-                mobRules = mob.checkSpawnRules(level, EntitySpawnReason.NATURAL);
+                mobRules = mob.checkSpawnRules(level, MobSpawnType.NATURAL);
                 unobstructed = mob.checkSpawnObstruction(level);
             } catch (Throwable t) {
                 return List.of(
@@ -819,7 +819,7 @@ public final class SpawnAuditor {
             boolean vanillaWould = mobRules && unobstructed;
             boolean actual;
             try {
-                actual = EventHooks.checkSpawnPosition(mob, level, EntitySpawnReason.NATURAL);
+                actual = EventHooks.checkSpawnPosition(mob, level, MobSpawnType.NATURAL);
             } catch (Throwable t) {
                 return List.of(
                     describeObstruction(level, mob, unobstructed),

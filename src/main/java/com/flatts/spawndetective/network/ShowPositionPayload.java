@@ -5,7 +5,7 @@ import com.flatts.spawndetective.audit.PositionReport;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 
 /**
  * Sent when the probe is used: open the screen for this position.
@@ -17,7 +17,7 @@ import net.minecraft.resources.Identifier;
 public record ShowPositionPayload(PositionReport report) implements CustomPacketPayload {
 
     public static final Type<ShowPositionPayload> TYPE =
-        new Type<>(Identifier.fromNamespaceAndPath(SpawnDetective.MOD_ID, "show_position"));
+        new Type<>(ResourceLocation.fromNamespaceAndPath(SpawnDetective.MOD_ID, "show_position"));
 
     public static final StreamCodec<RegistryFriendlyByteBuf, ShowPositionPayload> CODEC =
         PositionReport.STREAM_CODEC.map(ShowPositionPayload::new, ShowPositionPayload::report);

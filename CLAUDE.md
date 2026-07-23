@@ -10,8 +10,17 @@ spawn at this position?" definitively. Targets **NeoForge 26.1.2.76 on Minecraft
 `JAVA_HOME="C:/Program Files/Java/jdk-25"` for every gradlew invocation).
 NeoForge-only, no Fabric port, no Architectury layer.
 
-A 1.21.1 backport is planned on a `mc-1.21.1` branch once the design settles.
-Fixes flow old -> new only, as in the Productive Frogs repo.
+**Two lines, and fixes flow new to old.** `main` is 26.1 and is where all work
+happens; `mc-1.21.1` is the backport (NeoForge 21.1.230, Java 21). Fix on `main`,
+then cherry-pick and adapt the API surface. **Never merge between the lines.**
+
+Note this runs the opposite direction from Productive Frogs, where 1.21.1 was the
+mature line and fixes flowed old to new. The direction always runs from the line
+where development happens toward the line that trails it, and here that is 26.1.
+
+`docs/branch_policy.md` is the full contract: what each line accepts, how to write
+a cherry-pick commit, and the rule that neither line may report something the other
+cannot.
 
 ## The one rule that matters
 

@@ -59,8 +59,14 @@ Failing that:
 
 - `main` is protected - all changes land via PR.
 - Branch from `main`, named like `fix/light-attributed-to-floor` or
-  `feat/report-which-mod-vetoed`.
+  `feat/report-which-mod-vetoed`. Name a fix for the misdiagnosis it corrects, not
+  the class it touches.
 - Don't push directly to `main`.
+
+There are **two long-lived lines**: `main` (Minecraft 26.1) and `mc-1.21.1` (the
+backport). Target `main` unless the bug only exists on 1.21.1. Fixes flow `main`
+to `mc-1.21.1` by cherry-pick, never by merge, and the two are never merged in
+either direction. Full contract: [`docs/branch_policy.md`](./docs/branch_policy.md).
 
 ### Commit Messages
 

@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.1.0-alpha.2
+
+### Fixed
+
+- **The report screen is no longer blurred out by the Menu Background Blur video
+  setting.** The screen described its report and then ran the background pass last,
+  so Minecraft's menu-background blur (a full-screen effect, on by default) smeared
+  the report along with the world behind it - the whole thing was only legible with
+  the setting turned off. The background is now extracted first, before the report,
+  so the report stays sharp whatever the setting is.
+
 ## v0.1.0-alpha.1
 
 First release. Alpha because it has never been run outside a development

@@ -12,6 +12,7 @@ import java.util.Locale;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.components.Renderable;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -285,6 +286,14 @@ public class SpawnReportScreen extends Screen {
 
     @Override
     public void render(GuiGraphics gui, int mouseX, int mouseY, float partialTick) {
+        // Background FIRST, while the framebuffer holds only the world. The menu-background
+        // blur is a full-framebuffer post-process, so whatever is already drawn gets smeared -
+        // and everything below is our own report. The old code drew the panel and then called
+        // super.render() last, which runs renderBackground last, so the blur landed on top of
+        // the report: it came out unreadable unless the player disabled Menu Background Blur
+        // (on by default). Blurring only the world fixes that regardless of the setting.
+        this.renderBackground(gui, mouseX, mouseY, partialTick);
+
         gui.fill(this.left - 1, this.top - 1, this.left + PANEL_WIDTH + 1, this.top + PANEL_HEIGHT + 1, COLOR_BORDER);
         gui.fill(this.left, this.top, this.left + PANEL_WIDTH, this.top + PANEL_HEIGHT, COLOR_PANEL);
 
@@ -292,9 +301,12 @@ public class SpawnReportScreen extends Screen {
         drawBanner(gui);
         drawBody(gui, mouseX, mouseY);
 
-        // Widgets last. Calling super first painted the search field and then buried
-        // it under this panel's own background - present, focusable, and invisible.
-        super.render(gui, mouseX, mouseY, partialTick);
+        // Widgets (the search field) on top of the panel, so it is not buried by it - the
+        // reason the original code deferred to super.render() here. We render them directly
+        // instead of calling super.render(), which would run renderBackground a second time.
+        for (Renderable widget : this.renderables) {
+            widget.render(gui, mouseX, mouseY, partialTick);
+        }
     }
 
     private void drawHeader(GuiGraphics gui) {

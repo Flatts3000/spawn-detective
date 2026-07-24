@@ -286,6 +286,14 @@ public class SpawnReportScreen extends Screen {
 
     @Override
     public void extractRenderState(GuiGraphicsExtractor gui, int mouseX, int mouseY, float partialTick) {
+        // Background/blur FIRST, then the panel, then the search field back on top. Same fix
+        // as the 1.21.1 line: extracting the panel before the background let the menu-background
+        // blur (on by default) land on top of the report, so it was legible only with the
+        // setting off. Extracting the background first keeps the blur behind the report; the
+        // search field is re-extracted last so the panel does not bury it (the reason the
+        // original code deferred to super here).
+        super.extractRenderState(gui, mouseX, mouseY, partialTick);
+
         gui.fill(this.left - 1, this.top - 1, this.left + PANEL_WIDTH + 1, this.top + PANEL_HEIGHT + 1, COLOR_BORDER);
         gui.fill(this.left, this.top, this.left + PANEL_WIDTH, this.top + PANEL_HEIGHT, COLOR_PANEL);
 
@@ -293,9 +301,9 @@ public class SpawnReportScreen extends Screen {
         drawBanner(gui);
         drawBody(gui, mouseX, mouseY);
 
-        // Widgets last. Calling super first painted the search field and then buried
-        // it under this panel's own background - present, focusable, and invisible.
-        super.extractRenderState(gui, mouseX, mouseY, partialTick);
+        if (this.search != null) {
+            this.search.extractRenderState(gui, mouseX, mouseY, partialTick);
+        }
     }
 
     private void drawHeader(GuiGraphicsExtractor gui) {

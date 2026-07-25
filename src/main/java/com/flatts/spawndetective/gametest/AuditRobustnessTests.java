@@ -40,6 +40,131 @@ public final class AuditRobustnessTests {
     private AuditRobustnessTests() {
     }
 
+    /**
+     * A qualification on a yes must be as accountable as a no.
+     *
+     * <p>Companion to {@link #verdictNeverContradictsEvidence}, and for the same
+     * reason: the caveat is shown <i>in place of</i> "every gate passes", so an
+     * invented one is a fabricated sentence in the most prominent position on the
+     * screen. Three things have to hold - it is a rule that was actually walked, its
+     * verdict really is MARGINAL, and it never appears beside a blocker, because two
+     * competing explanations is how the old aggregate banner read.
+     */
+    @GameTest(templateNamespace = SpawnDetective.MOD_ID, template = "empty_5x5x5", timeoutTicks = 1)
+    public static void caveat_never_contradicts_evidence(GameTestHelper helper) {
+        BlockPos pos = helper.absolutePos(new BlockPos(1, 2, 1));
+        PositionReport position = SpawnAuditor.auditPosition(helper.getLevel(), pos);
+
+        for (EntityType<?> type : BuiltInRegistries.ENTITY_TYPE) {
+            if (type.getCategory() == MobCategory.MISC) {
+                continue;
+            }
+            String name = BuiltInRegistries.ENTITY_TYPE.getKey(type).getPath();
+            AuditReport.Candidate candidate = SpawnAuditor.auditType(helper.getLevel(), pos, type);
+            SpawnVerdict verdict = SpawnVerdict.of(position, candidate);
+            RuleResult caveat = verdict.caveat();
+            if (caveat == null) {
+                continue;
+            }
+
+            if (verdict.blocker() != null) {
+                throw fail(helper, name + ": carries both a blocker and a caveat, so the report offers "
+                    + "two answers to one question");
+            }
+            if (caveat.verdict() != Verdict.MARGINAL) {
+                throw fail(helper, name + ": caveat on " + caveat.rule() + " is "
+                    + caveat.verdict() + ", not a partial pass");
+            }
+            boolean walked = position.world().contains(caveat) || candidate.rules().contains(caveat);
+            if (!walked) {
+                throw fail(helper, name + ": caveat on " + caveat.rule()
+                    + " is not one of the rules actually evaluated");
+            }
+            if (caveat.detail().isBlank()) {
+                throw fail(helper, name + ": caveat on " + caveat.rule() + " qualifies the answer "
+                    + "without saying how");
+            }
+        }
+        helper.succeed();
+    }
+
+    /**
+     * A candidate's rules must stay in pipeline order, for every type in the registry.
+     *
+     * <p>Order is not cosmetic here: {@code Candidate.blocker()} returns the first
+     * blocking rule, so it names the first cause only while the list matches the order
+     * vanilla decides in. That was implicit until the category caps started being
+     * prepended to the per-type walk, at which point one misplaced insertion would
+     * quietly start reporting the second reason a spawn failed as though it were the
+     * first - a wrong answer that still looks like a complete report.
+     */
+    @GameTest(templateNamespace = SpawnDetective.MOD_ID, template = "empty_5x5x5", timeoutTicks = 1)
+    public static void candidate_rules_stay_in_pipeline_order(GameTestHelper helper) {
+        BlockPos pos = helper.absolutePos(new BlockPos(1, 2, 1));
+
+        for (EntityType<?> type : BuiltInRegistries.ENTITY_TYPE) {
+            if (type.getCategory() == MobCategory.MISC) {
+                continue;
+            }
+            AuditReport.Candidate candidate = SpawnAuditor.auditType(helper.getLevel(), pos, type);
+
+            int furthest = -1;
+            for (RuleResult result : candidate.rules()) {
+                if (result.rule().ordinal() < furthest) {
+                    throw fail(helper, BuiltInRegistries.ENTITY_TYPE.getKey(type).getPath()
+                        + ": " + result.rule() + " is walked after a later rule, so blocker() would "
+                        + "name the wrong first cause");
+                }
+                furthest = result.rule().ordinal();
+            }
+        }
+        helper.succeed();
+    }
+
+    /**
+     * A rule that measures a rate must never be able to answer "no".
+     *
+     * <p>{@link com.flatts.spawndetective.audit.SpawnRule#ATTEMPT_REACH} reports how
+     * often the spawner reaches a height. Slow is not shut - a neighbouring chunk's
+     * pack can still walk in - and the rule sits in the world list, so a single FAIL
+     * would become the headline for every mob at the position and have the mod say
+     * "cannot spawn here" about a block that can. That is precisely the class of
+     * confident wrongness this feature was added to remove, so it must not be
+     * reintroduced by the fix for it.
+     *
+     * <p>Swept across the full build range, because the degenerate heights (the world
+     * floor, above every column, outside the build range entirely) are where a rate
+     * collapses to zero and a boolean would be tempting.
+     */
+    @GameTest(templateNamespace = SpawnDetective.MOD_ID, template = "empty_5x5x5", timeoutTicks = 1)
+    public static void informational_rules_never_block(GameTestHelper helper) {
+        ServerLevel level = helper.getLevel();
+        BlockPos here = helper.absolutePos(new BlockPos(1, 2, 1));
+
+        int[] heights = {
+            level.getMinBuildHeight() - 8, level.getMinBuildHeight(), level.getMinBuildHeight() + 1,
+            here.getY(), here.getY() + 64, level.getMaxBuildHeight(), level.getMaxBuildHeight() + 8
+        };
+
+        for (int y : heights) {
+            BlockPos pos = new BlockPos(here.getX(), y, here.getZ());
+            PositionReport report = SpawnAuditor.auditPosition(level, pos);
+
+            RuleResult reach = report.world().stream()
+                .filter(r -> r.rule() == com.flatts.spawndetective.audit.SpawnRule.ATTEMPT_REACH)
+                .findFirst()
+                .orElseThrow(() -> fail(helper, "no attempt-reach row at y=" + y));
+
+            if (reach.verdict().blocks()) {
+                throw fail(helper, "attempt reach blocked a spawn at y=" + y
+                    + ", which it must never do: " + reach.detail());
+            }
+            if (reach.value().isBlank() || reach.detail().isBlank()) {
+                throw fail(helper, "attempt reach reported nothing measurable at y=" + y);
+            }
+        }
+        helper.succeed();
+    }
 
     /**
      * Never accuse a mod of something no mod did.

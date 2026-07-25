@@ -104,6 +104,33 @@ class StreamCodecRoundTripTest {
     }
 
     @Test
+    @DisplayName("rule order survives, because order is what names the first cause")
+    void candidateRuleOrderSurvives() {
+        // The screen reads blocker() off the decoded list, and blocker() returns the
+        // FIRST blocking rule. A codec that preserved the set but not the sequence
+        // would decode cleanly and then report the second reason a spawn failed as
+        // though it were the first - the caps, which now lead this list, would end up
+        // behind the per-mob gates they are checked before.
+        AuditReport.Candidate original = new AuditReport.Candidate(
+            EntityType.ZOMBIE, 0, 0,
+            List.of(RuleResult.skipped(SpawnRule.CATEGORY_GLOBAL_CAP, "no spawnable chunks"),
+                RuleResult.pass(SpawnRule.CATEGORY_LOCAL_CAP, "under 70", "a player is under their cap"),
+                RuleResult.pass(SpawnRule.TYPE_SUMMONABLE, "yes", "summonable"),
+                RuleResult.fail(SpawnRule.PLACEMENT, "floor: Air", "the floor is Air"),
+                RuleResult.marginal(SpawnRule.SPAWN_RULES, "light 7 (14% of rolls)", "9 of 64 pass", null)));
+
+        RegistryFriendlyByteBuf buf = buffer();
+        AuditReport.Candidate.STREAM_CODEC.encode(buf, original);
+        AuditReport.Candidate decoded = AuditReport.Candidate.STREAM_CODEC.decode(buf);
+
+        assertEquals(original.rules(), decoded.rules());
+        assertEquals(original.rules().stream().map(RuleResult::rule).toList(),
+            decoded.rules().stream().map(RuleResult::rule).toList());
+        assertSame(SpawnRule.PLACEMENT, decoded.blocker().orElseThrow().rule(),
+            "the first blocking rule must survive as the first blocking rule");
+    }
+
+    @Test
     @DisplayName("a position report survives, fields in their own slots")
     void positionReportRoundTrips() {
         PositionReport original = new PositionReport(

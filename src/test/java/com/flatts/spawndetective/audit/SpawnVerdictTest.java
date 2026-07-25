@@ -79,6 +79,41 @@ class SpawnVerdictTest {
 
             assertTrue(verdict.canSpawn(), "a mob that spawns 14% of the time still spawns");
         }
+
+        @Test
+        @DisplayName("but it is carried as a caveat, so the yes is not read as a promise")
+        void marginalBecomesTheCaveat() {
+            // The shipped over-promise: 14% of rolls and once-an-hour attempt reach
+            // both rendered as a flat "CAN SPAWN HERE - every gate passes", identical
+            // to a mob that spawns on every attempt. The tone is right; the answer was
+            // missing half of itself.
+            RuleResult marginal = RuleResult.marginal(SpawnRule.SPAWN_RULES, "light 7", "14% of rolls", null);
+            SpawnVerdict verdict = SpawnVerdict.of(position(), candidate(marginal));
+
+            assertSame(SpawnVerdict.Tone.CAN_SPAWN, verdict.tone(), "a caveat must not change the answer");
+            assertSame(marginal, verdict.caveat());
+        }
+
+        @Test
+        @DisplayName("no caveat when every rule passes outright")
+        void noCaveatWhenClean() {
+            SpawnVerdict verdict = SpawnVerdict.of(
+                position(passing(SpawnRule.ATTEMPT_REACH)), candidate(passing(SpawnRule.PLACEMENT)));
+
+            assertNull(verdict.caveat(), "nothing qualifies this yes, so nothing should be attached to it");
+        }
+
+        @Test
+        @DisplayName("the place qualifies the answer before the mob does")
+        void worldCaveatComesFirst() {
+            // Same ordering as the blocker search, and the same reason: vanilla decides
+            // at the world layer first, so naming the mob's caveat over the position's
+            // would report the second qualification rather than the first.
+            RuleResult reach = RuleResult.marginal(SpawnRule.ATTEMPT_REACH, "1/256, 28min", "sparse", null);
+            RuleResult light = RuleResult.marginal(SpawnRule.SPAWN_RULES, "light 7", "14% of rolls", null);
+
+            assertSame(reach, SpawnVerdict.of(position(reach), candidate(light)).caveat());
+        }
     }
 
     @Nested
@@ -143,6 +178,20 @@ class SpawnVerdictTest {
                 candidate(blocking(SpawnRule.PLACEMENT)));
 
             assertSame(SpawnRule.WORLD_BORDER, verdict.blocker().rule());
+        }
+
+        @Test
+        @DisplayName("a blocker suppresses the caveat - the blocker is the answer")
+        void blockerOutranksCaveat() {
+            // Two qualifications compete. "The floor is wrong" is what to act on;
+            // "and the spawner rarely reaches this height anyway" is a second sentence
+            // that only makes the first harder to find.
+            SpawnVerdict verdict = SpawnVerdict.of(
+                position(RuleResult.marginal(SpawnRule.ATTEMPT_REACH, "1/256, 28min", "sparse", null)),
+                candidate(blocking(SpawnRule.PLACEMENT)));
+
+            assertSame(SpawnRule.PLACEMENT, verdict.blocker().rule());
+            assertNull(verdict.caveat());
         }
 
         @Test

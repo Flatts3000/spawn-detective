@@ -3,6 +3,28 @@
 This is the **1.21.1 line**. It covers this branch only; the 26.1 line has its own
 changelog on `main`.
 
+## v0.1.0-alpha.3
+
+### Fixed
+
+- **A green verdict no longer over-promises on a spot the spawner rarely reaches.**
+  On a small platform in a void or skyblock world, every gate genuinely passes and
+  the farm still sits empty, because the natural spawner almost never picks that
+  height - and the report had no way to say so. It now measures how often a spawn
+  attempt in the chunk anchors at the block's Y, reads that from the chunk's real
+  surface heights rather than estimating it, and shows the answer beside the verdict.
+  A lone platform in an empty chunk is exactly as eligible as a full floor and 256
+  times as slow; the report says both. The verdict still reads "can spawn here",
+  because it can, but it turns yellow and carries the wait.
+- **The same applies to a mob that only sometimes passes its own rules.** One
+  clearing its light roll three times in a hundred used to read identically to one
+  that spawns on every attempt. The rate now travels with the yes.
+- **The mob caps are visible again on every surface.** The report screen, the Jade
+  tooltip and `/spawndetective for <entity>` all walked only the per-mob gates, so a
+  player sitting against a full mob cap read a report with every line green and no
+  cap row on it anywhere. Both caps now appear on that path, with the global one
+  showing how much room is left (`62 / 70`) rather than only whether it is full.
+
 ## v0.1.0-alpha.2
 
 ### Fixed

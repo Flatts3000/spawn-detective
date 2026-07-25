@@ -111,9 +111,15 @@ walks one specific type, skipping the biome list - that is what
 bottom and the first `FAIL` is the headline. Adding a rule means inserting it at
 the right position, not appending.
 
-Two rules are deliberately not booleans, and both are explained at length in
+Three rules are deliberately not booleans, and all three are explained at length in
 `docs/spawn_pipeline_map.md`:
 
+- **`ATTEMPT_REACH`** is a measured rate, not a gate: how often an attempt in this
+  chunk anchors at this Y, computed exactly from the chunk's live `WORLD_SURFACE`
+  heightmap because `getRandomPosWithin` rolls uniformly over each column. It is
+  **never a `FAIL`** - it sits in the world list, so one would become the headline
+  for every mob and have the mod say "cannot spawn" about a block that can. A spot
+  the spawner rarely reaches is slow, not shut.
 - **`PLACEMENT`** is decomposed by hand per placement type so the report says "the
   floor is Grass Block" rather than "placement: false".
 - **`SPAWN_RULES`** is sampled and then attributed by **re-running the same

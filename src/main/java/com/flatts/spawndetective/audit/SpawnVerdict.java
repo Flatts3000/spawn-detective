@@ -18,8 +18,11 @@ import org.jspecify.annotations.Nullable;
  * <p>Verdict logic is not presentation. Kept here it is testable, reusable by the
  * command, and impossible to contradict by rendering a different subset of the
  * evidence somewhere else.
+ *
+ * @param caveat a rule that permits a spawn but qualifies how often - the reason a
+ *               green verdict is not always the whole answer. See {@link #caveat()}.
  */
-public record SpawnVerdict(Tone tone, @Nullable RuleResult blocker) {
+public record SpawnVerdict(Tone tone, @Nullable RuleResult blocker, @Nullable RuleResult caveat) {
 
     /** What kind of answer this is. */
     public enum Tone {
@@ -59,12 +62,12 @@ public record SpawnVerdict(Tone tone, @Nullable RuleResult blocker) {
     public static SpawnVerdict of(List<RuleResult> world, AuditReport.Candidate candidate) {
         Optional<RuleResult> standing = firstBlocker(world, candidate, true);
         if (standing.isPresent()) {
-            return new SpawnVerdict(Tone.BLOCKED_ALWAYS, standing.get());
+            return new SpawnVerdict(Tone.BLOCKED_ALWAYS, standing.get(), null);
         }
         Optional<RuleResult> situational = firstBlocker(world, candidate, false);
         return situational
-            .map(blocker -> new SpawnVerdict(Tone.BLOCKED_NOW, blocker))
-            .orElseGet(() -> new SpawnVerdict(Tone.CAN_SPAWN, null));
+            .map(blocker -> new SpawnVerdict(Tone.BLOCKED_NOW, blocker, null))
+            .orElseGet(() -> new SpawnVerdict(Tone.CAN_SPAWN, null, firstCaveat(world, candidate)));
     }
 
     private static Optional<RuleResult> firstBlocker(
@@ -73,6 +76,28 @@ public record SpawnVerdict(Tone tone, @Nullable RuleResult blocker) {
         return Stream.concat(world.stream(), candidate.rules().stream())
             .filter(r -> r.verdict().blocks() && r.rule().standing() == standing)
             .findFirst();
+    }
+
+    /**
+     * The first rule that permits a spawn without promising one.
+     *
+     * <p>A {@link Verdict#MARGINAL} rule does not block, so before this existed the
+     * banner read a flat "CAN SPAWN HERE - every gate passes" over a mob that clears
+     * its light roll three times in a hundred, and over a block in a void world that
+     * the spawner's sampler reaches once an hour. Both are technically correct and
+     * both send a player away believing their farm will produce.
+     *
+     * <p>Only populated for {@link Tone#CAN_SPAWN}. Beside a blocker it would be
+     * noise: the blocker is the answer, and a second qualification competes with it.
+     *
+     * <p>World rules are searched first, matching {@link #firstBlocker} and vanilla's
+     * own order - the place qualifies the answer before the mob does.
+     */
+    private static @Nullable RuleResult firstCaveat(List<RuleResult> world, AuditReport.Candidate candidate) {
+        return Stream.concat(world.stream(), candidate.rules().stream())
+            .filter(r -> r.verdict() == Verdict.MARGINAL)
+            .findFirst()
+            .orElse(null);
     }
 
     public boolean canSpawn() {

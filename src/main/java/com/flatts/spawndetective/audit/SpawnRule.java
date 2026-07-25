@@ -46,6 +46,16 @@ public enum SpawnRule {
         "Every player near this chunk is already at their cap for this category."),
 
     // ------------------------------------------------------------- position
+    /**
+     * {@code NaturalSpawner.spawnCategoryForChunk} -> {@code getRandomPosWithin}:
+     * how often a spawn attempt in this chunk anchors at this Y at all.
+     *
+     * <p>Informational, and never a {@link Verdict#FAIL}. A spot the spawner rarely
+     * reaches is slow, not shut, and letting this become the headline would have the
+     * mod say "cannot spawn" about a block that can.
+     */
+    ATTEMPT_REACH(Layer.POSITION, Persistence.STANDING, "Spawn attempt reach",
+        "Enlarge the platform: the rate scales with how much of the chunk has surface at this height."),
     /** {@code NaturalSpawner.spawnCategoryForPosition}: the anchor block must not conduct redstone. */
     ANCHOR_NOT_CONDUCTOR(Layer.POSITION, Persistence.STANDING, "Anchor block",
         "A spawn attempt anchored on this block is discarded before any mob is picked."),

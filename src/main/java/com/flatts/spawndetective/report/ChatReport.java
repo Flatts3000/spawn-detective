@@ -140,6 +140,10 @@ public final class ChatReport {
         RuleResult blocker = verdict.blocker();
         if (blocker == null) {
             line.append(Component.literal("can spawn").withStyle(ChatFormatting.GREEN));
+            if (verdict.caveat() != null) {
+                line.append(Component.literal("  " + verdict.caveat().rule().title()
+                    + ": " + verdict.caveat().summary()).withStyle(ChatFormatting.YELLOW));
+            }
         } else {
             line.append(Component.literal(blocker.rule().title() + ": " + blocker.summary())
                 .withStyle(verdict.tone() == SpawnVerdict.Tone.BLOCKED_NOW
@@ -152,8 +156,15 @@ public final class ChatReport {
     private static Component verdictLine(SpawnVerdict verdict, String name) {
         RuleResult blocker = verdict.blocker();
         return switch (verdict.tone()) {
-            case CAN_SPAWN -> Component.literal(name + " can spawn here")
-                .withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD);
+            case CAN_SPAWN -> {
+                MutableComponent line = Component.literal(name + " can spawn here")
+                    .withStyle(ChatFormatting.GREEN, ChatFormatting.BOLD);
+                // The qualification travels with the yes, or the console surface goes
+                // on promising what the screen has stopped promising.
+                yield verdict.caveat() == null ? line
+                    : line.append(Component.literal("  " + verdict.caveat().detail())
+                        .withStyle(ChatFormatting.YELLOW));
+            }
             case BLOCKED_NOW -> Component.literal(name + " is blocked right now")
                 .withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD)
                 .append(Component.literal("  " + blocker.rule().title() + ": " + blocker.summary())

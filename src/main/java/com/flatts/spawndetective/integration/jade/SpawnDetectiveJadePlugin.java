@@ -158,14 +158,27 @@ public final class SpawnDetectiveJadePlugin implements IWailaPlugin {
 
                 data.putString(KEY_MOB, BuiltInRegistries.ENTITY_TYPE.getKey(type).getPath());
                 data.putInt(KEY_TONE, verdict.tone().ordinal());
-                data.putString(KEY_REASON, verdict.blocker() == null ? ""
-                    : verdict.blocker().rule().title() + ": " + verdict.blocker().summary());
+                data.putString(KEY_REASON, describe(verdict));
             } catch (Throwable t) {
                 // A look-at tooltip must never take the server down over a mod's
                 // misbehaving spawn predicate. Say nothing rather than crash.
                 SpawnDetective.LOGGER.debug("Jade spawn check failed at {}", pos, t);
             }
         }
+    }
+
+    /**
+     * The second line: what stopped it, or - when nothing did - what qualifies the
+     * yes. The caveat line matters most here, because someone spawn-proofing a room
+     * reads "can spawn" as a job still to do, and "can spawn, once an hour" is a very
+     * different amount of work.
+     */
+    private static String describe(SpawnVerdict verdict) {
+        if (verdict.blocker() != null) {
+            return verdict.blocker().rule().title() + ": " + verdict.blocker().summary();
+        }
+        return verdict.caveat() == null ? ""
+            : verdict.caveat().rule().title() + ": " + verdict.caveat().summary();
     }
 
     private static SpawnVerdict.Tone toneOf(int ordinal) {

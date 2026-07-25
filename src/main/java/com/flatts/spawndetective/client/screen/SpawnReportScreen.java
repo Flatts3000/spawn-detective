@@ -371,9 +371,18 @@ public class SpawnReportScreen extends Screen {
             // that every tone produces a complete banner.
             record Banner(int accent, String verdict, List<String> detail, @Nullable String remedy) {}
             Banner banner = switch (resolved.tone()) {
-                case CAN_SPAWN -> new Banner(TEXT_GOOD, mob + " CAN SPAWN HERE",
-                    wrap("Every gate passes, at this position and in this world right now.", textWidth, 2),
-                    null);
+                // A caveat keeps the headline - the mob genuinely can spawn - but
+                // takes the accent yellow, which also swaps the tick for "!". Green
+                // over "reached once an hour" is the same over-promise as green over
+                // "passes 3% of its light rolls", and both used to read identically
+                // to a mob that spawns on every attempt.
+                case CAN_SPAWN -> resolved.caveat() == null
+                    ? new Banner(TEXT_GOOD, mob + " CAN SPAWN HERE",
+                        wrap("Every gate passes, at this position and in this world right now.", textWidth, 2),
+                        null)
+                    : new Banner(TEXT_WARN, mob + " CAN SPAWN HERE",
+                        wrap(capitalise(resolved.caveat().detail()) + ".", textWidth, 2),
+                        resolved.caveat().effectiveRemedy());
                 case BLOCKED_NOW -> new Banner(TEXT_WARN, mob + " IS BLOCKED RIGHT NOW",
                     wrap(describe(resolved), textWidth, 2), remedyOf(resolved));
                 case BLOCKED_ALWAYS -> new Banner(TEXT_BAD, mob + " CANNOT SPAWN HERE",
@@ -584,6 +593,15 @@ public class SpawnReportScreen extends Screen {
 
     private static String name(EntityType<?> type) {
         return BuiltInRegistries.ENTITY_TYPE.getKey(type).getPath();
+    }
+
+    /**
+     * Rule details are written to be dropped into a sentence mid-flow ("blocked by:
+     * only 4 of 256 columns..."), so one used as a banner line on its own needs its
+     * first letter lifted.
+     */
+    private static String capitalise(String text) {
+        return text.isEmpty() ? text : Character.toUpperCase(text.charAt(0)) + text.substring(1);
     }
 
     private String shortDimension() {

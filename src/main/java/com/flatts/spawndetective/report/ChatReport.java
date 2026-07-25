@@ -118,9 +118,12 @@ public final class ChatReport {
                 .withStyle(ChatFormatting.DARK_GRAY)));
 
         // A shut cap stops every mob under it for one reason; repeating that reason on
-        // each of them would bury it in its own copies.
+        // each of them would bury it in its own copies. MARGINAL is included even
+        // though it permits: a full cap reads MARGINAL now, and dropping it here would
+        // remove the cap line from the sweep entirely - which is the omission this
+        // release exists to fix, reintroduced one surface over.
         for (RuleResult result : category.rules()) {
-            if (!result.verdict().permits()) {
+            if (!result.verdict().permits() || result.verdict() == Verdict.MARGINAL) {
                 lines.add(indent(ruleLine(result)));
             }
         }

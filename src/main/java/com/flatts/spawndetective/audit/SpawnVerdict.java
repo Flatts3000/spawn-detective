@@ -90,14 +90,24 @@ public record SpawnVerdict(Tone tone, @Nullable RuleResult blocker, @Nullable Ru
      * <p>Only populated for {@link Tone#CAN_SPAWN}. Beside a blocker it would be
      * noise: the blocker is the answer, and a second qualification competes with it.
      *
-     * <p>World rules are searched first, matching {@link #firstBlocker} and vanilla's
-     * own order - the place qualifies the answer before the mob does.
+     * <p>Permanent qualifications outrank temporary ones, for the same reason
+     * {@link #firstBlocker} prefers them: "the spawner reaches this height once an
+     * hour" is a property of the place and will still be true tomorrow, while "the
+     * mob cap is full" reverts on its own within seconds. Naming the transient one
+     * over the standing one would send someone off to kill mobs when their platform
+     * is the problem. Within a persistence, world rules come first, matching
+     * vanilla's own order.
      */
     private static @Nullable RuleResult firstCaveat(List<RuleResult> world, AuditReport.Candidate candidate) {
+        return caveatOf(world, candidate, true).or(() -> caveatOf(world, candidate, false)).orElse(null);
+    }
+
+    private static Optional<RuleResult> caveatOf(
+        List<RuleResult> world, AuditReport.Candidate candidate, boolean standing
+    ) {
         return Stream.concat(world.stream(), candidate.rules().stream())
-            .filter(r -> r.verdict() == Verdict.MARGINAL)
-            .findFirst()
-            .orElse(null);
+            .filter(r -> r.verdict() == Verdict.MARGINAL && r.rule().standing() == standing)
+            .findFirst();
     }
 
     public boolean canSpawn() {

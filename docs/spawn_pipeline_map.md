@@ -27,8 +27,8 @@ have rejected on.
 | 3 | `WORLD_BORDER` | `ServerLevel.canSpawnEntitiesInChunk` (border half) | Split out from #4 so the report names which half failed. |
 | 4 | `CHUNK_ENTITY_TICKING` | `ServerLevel.canSpawnEntitiesInChunk` -> `entityManager.canPositionTick` | This is simulation distance, not render distance. |
 | 5 | `PLAYER_IN_SPAWN_RANGE` | `ChunkMap.anyPlayerCloseEnoughForSpawning` | The 128-block / 8-chunk spawn sphere. |
-| 6 | `CATEGORY_GLOBAL_CAP` | `NaturalSpawner.SpawnState.canSpawnForCategoryGlobal` | `max * spawnableChunks / 289`. Counts read from the live spawn state. |
-| 7 | `CATEGORY_LOCAL_CAP` | `LocalMobCapCalculator.canSpawn` | Per-player slice. Needs the AT on `SpawnState.localMobCapCalculator`. |
+| 6 | `CATEGORY_GLOBAL_CAP` | `NaturalSpawner.SpawnState.canSpawnForCategoryGlobal` | `max * spawnableChunks / 289`. Counts read from the live spawn state. **`MARGINAL` when full, never `FAIL`** - see below. |
+| 7 | `CATEGORY_LOCAL_CAP` | `LocalMobCapCalculator.canSpawn` | Per-player slice. Needs the AT on `SpawnState.localMobCapCalculator`. `MARGINAL` when full, as above. |
 | 8 | `ATTEMPT_REACH` | `NaturalSpawner.spawnCategoryForChunk` -> `getRandomPosWithin` | Informational, never a `FAIL`. How often an attempt in this chunk anchors at this Y - see below. |
 | 9 | `ANCHOR_NOT_CONDUCTOR` | `NaturalSpawner.spawnCategoryForPosition` (first branch) | Advisory: the real anchor is a random position sharing this Y. |
 | 10 | `PLAYER_DISTANCE` | `NaturalSpawner.isRightDistanceToPlayerAndSpawnPoint` | 24 blocks, i.e. `576.0` squared. |
@@ -59,6 +59,38 @@ at all. **A gate omitted from the report is as wrong as a gate reported wrongly,
 much harder to notice.**
 
 ## The three rules that are not booleans
+
+### The mob caps - competition, not refusal
+
+`canSpawnForCategoryGlobal` is `getMaxInstancesPerChunk() * spawnableChunkCount / 289`,
+where 289 is `MAGIC_NUMBER`, i.e. 17 squared. **A single player's spawn-eligible area
+is a 17x17 chunk square - exactly 289 chunks** - so that constant exists precisely to
+make one player yield the base figure. For monsters that is a cap of exactly 70, which
+is vanilla's familiar single-player hostile limit, and in any overworld with caves
+under it the count sits pinned at that ceiling more or less permanently.
+
+So a full cap is the **steady state, not a defect**. It is the mechanism that stops
+mobs accumulating without bound, and it is working when it is full.
+
+Both cap rules therefore report `MARGINAL` when full rather than `FAIL`, for two
+reasons:
+
+1. **It is nearly always true, so it would nearly always be the headline.** This mod
+   has already learned that shape once - see `Persistence` on `SpawnRule`, where
+   `PLAYER_DISTANCE` always fails for a probed position because you are always within
+   24 blocks of the block you are pointing at. A headline that is always the same has
+   stopped being an answer, and the per-block question is the one the probe was
+   pointed at.
+2. **It is not true tick to tick.** `getFilteredSpawningCategories` rebuilds this every
+   tick and mobs die and despawn continuously, so the cap oscillates at its ceiling
+   many times a second and spawns keep happening throughout. That is why lighting the
+   caves near a farm helps it, and why farms work at all. `MARGINAL` is defined as
+   "permits a spawn, but only some of the time", which is exactly the situation.
+
+The row still shows `70 / 70 FULL`, and the verdict carries it as its caveat, so the
+reader sees the competition without being told their block is dead. The counter-case
+is real and is served by the same row: a grinder holding 70 mobs alive really is why a
+new farm is producing nothing, and the measurement says so.
 
 ### `ATTEMPT_REACH` - a measured rate, not a gate
 
@@ -212,6 +244,9 @@ Without `localMobCapCalculator` the per-player cap cannot be read at all.
 
 - **`ATTEMPT_REACH` (#8) measures one chunk's anchor roll, not a farm's output.** See
   the section above for the three things it leaves out.
+- **A full mob cap (#6, #7) is not reported as a refusal.** It is the normal steady
+  state of an overworld and it oscillates at its ceiling constantly, so it reports
+  `MARGINAL` and qualifies the answer rather than replacing it.
 - **The per-player cap (#7) is a boolean, not a count.** `LocalMobCapCalculator`
   keeps its per-player numbers in a private map behind a private nested `MobCounts`,
   and the three further access transformers that would reach them would bind this mod

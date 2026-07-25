@@ -379,17 +379,48 @@ for (MobSpawnSettings.SpawnerData entry : ordered) {
                 RuleResult.skipped(SpawnRule.CATEGORY_LOCAL_CAP, note));
         }
 
-        // The measurement is rendered on the passing branch too. "Under the cap" and
-        // "62 of 70 used" are different answers: the second says how much room is
-        // left before a green verdict flips, which is the question someone watching
-        // a farm fill up is actually asking.
         return List.of(
-            RuleResult.of(SpawnRule.CATEGORY_GLOBAL_CAP, count < cap,
-                count + " / " + cap, count + " of " + cap + " used across the dimension",
-                count + " / " + cap + " FULL",
-                "cap full: " + count + " of " + cap + ", over " + state.getSpawnableChunkCount()
-                    + " spawnable chunks"),
+            globalCapResult(count, cap),
             auditLocalCap(state, category, new ChunkPos(pos)));
+    }
+
+    /**
+     * The global cap as a rule row: PASS under it, MARGINAL at it, never FAIL.
+     *
+     * <p>A full cap is not a defect, it is the steady state. One player makes the
+     * spawn-eligible area 17x17 chunks, which is exactly {@code MAGIC_NUMBER}, so the
+     * cap is exactly 70 monsters - and in any overworld with caves under it the count
+     * sits pinned at that ceiling more or less permanently. Reporting that as a
+     * definitive no made "the mob cap is full" the headline for most probes in a
+     * normal world, which buries the per-block answer the probe was pointed at. The
+     * mod already learned this shape once with {@code PLAYER_DISTANCE}: a condition
+     * that is nearly always true is nearly always the headline, and then the headline
+     * stops being an answer.
+     *
+     * <p>It is also not true block-to-block. {@code getFilteredSpawningCategories}
+     * rebuilds this every tick and mobs die and despawn continuously, so the cap
+     * oscillates at its ceiling many times a second and spawns keep happening
+     * throughout. That is why lighting nearby caves helps a farm and why farms work
+     * at all. The honest reading is competition, not refusal - which is what
+     * {@link Verdict#MARGINAL} means: it permits a spawn, but only some of the time.
+     *
+     * <p>Pure and package-visible so the decision can be unit-tested. Constructing a
+     * full cap in a GameTest is not possible - a headless test server has no players,
+     * so it has no spawnable chunks and no cap to fill.
+     */
+    static RuleResult globalCapResult(int count, int cap) {
+        String measured = count + " / " + cap;
+        if (count < cap) {
+            // Rendered on the passing branch too. "Under the cap" and "62 of 70 used"
+            // are different answers: the second says how much room is left before the
+            // verdict changes, which is what someone watching a farm fill up is asking.
+            return RuleResult.pass(SpawnRule.CATEGORY_GLOBAL_CAP, measured,
+                count + " of " + cap + " used across the dimension");
+        }
+        return RuleResult.marginal(SpawnRule.CATEGORY_GLOBAL_CAP, measured + " FULL",
+            "all " + cap + " slots are taken across the dimension, so this mob competes for one as "
+                + "others die or despawn",
+            "Light up caves nearby, or clear mobs elsewhere, so fewer spawns go to them instead.");
     }
 
     /**
@@ -403,16 +434,23 @@ for (MobSpawnSettings.SpawnerData entry : ordered) {
      */
     private static RuleResult auditLocalCap(NaturalSpawner.SpawnState state, MobCategory category, ChunkPos chunkPos) {
         try {
-            boolean ok = state.localMobCapCalculator.canSpawn(category, chunkPos);
-            int max = category.getMaxInstancesPerChunk();
-            return RuleResult.of(SpawnRule.CATEGORY_LOCAL_CAP, ok,
-                "under " + max,
-                "at least one nearby player is under their cap of " + max,
-                "at " + max + " FULL",
-                "every player near this chunk is at their cap of " + max);
+            return localCapResult(
+                state.localMobCapCalculator.canSpawn(category, chunkPos), category.getMaxInstancesPerChunk());
         } catch (Throwable t) {
             return RuleResult.unknown(SpawnRule.CATEGORY_LOCAL_CAP, "could not read the local cap: " + t);
         }
+    }
+
+    /** The per-player cap, MARGINAL when full for the same reason as {@link #globalCapResult}. */
+    static RuleResult localCapResult(boolean ok, int max) {
+        if (ok) {
+            return RuleResult.pass(SpawnRule.CATEGORY_LOCAL_CAP, "under " + max,
+                "at least one nearby player is under their cap of " + max);
+        }
+        return RuleResult.marginal(SpawnRule.CATEGORY_LOCAL_CAP, "at " + max + " FULL",
+            "every player near this chunk is at their cap of " + max + ", so this mob competes for a slot "
+                + "as others die or despawn",
+            "Clear mobs near the players around this chunk, or move your AFK spot.");
     }
 
     /**

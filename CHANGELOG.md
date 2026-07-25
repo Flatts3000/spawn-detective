@@ -24,6 +24,13 @@ changelog on `main`.
   player sitting against a full mob cap read a report with every line green and no
   cap row on it anywhere. Both caps now appear on that path, with the global one
   showing how much room is left (`62 / 70`) rather than only whether it is full.
+- **A full mob cap no longer reads as "this block is dead".** A full monster cap is
+  the normal state of an overworld, not a fault - one player gives a cap of exactly
+  70, and with caves below it stays pinned there. It is also rebuilt every tick, so
+  mobs keep spawning while it sits at its ceiling; that is why lighting nearby caves
+  helps a farm. The cap now qualifies the answer instead of replacing it: the verdict
+  says the mob can spawn and that it is competing for a slot, and the row still shows
+  `70 / 70 FULL` so a grinder holding the cap open is still visible as the cause.
 
 ## v0.1.0-alpha.2
 

@@ -225,6 +225,11 @@ public final class SpawnAuditor {
             "yes", "a player is within 128 blocks of this chunk",
             "none within 128", "no player within 128 blocks of this chunk - it is never picked for a spawn attempt"));
 
+        // NaturalSpawner.spawnCategoryForChunk -> getRandomPosWithin: how often an
+        // attempt in this chunk anchors at this Y at all. Informational and never a
+        // FAIL - it is the odds beside the verdict, not another way to say no.
+        results.add(SpawnAttemptReach.audit(level, pos));
+
         // NaturalSpawner.spawnCategoryForPosition: the attempt is discarded outright
         // if the anchor block conducts redstone. Advisory, because the real anchor is
         // a random position in the chunk that shares this Y level.
@@ -291,35 +296,7 @@ public final class SpawnAuditor {
             return new AuditReport.Category(category, rules, List.of());
         }
 
-        // NaturalSpawner.SpawnState.canSpawnForCategoryGlobal. The live counts come
-        // from the spawn state the server built on its last spawn tick; if the server
-        // has not run one yet there is nothing honest to report.
-        NaturalSpawner.SpawnState state = level.getChunkSource().getLastSpawnState();
-        if (state == null) {
-            rules.add(RuleResult.unknown(SpawnRule.CATEGORY_GLOBAL_CAP,
-                "no spawn state yet - the server has not run a spawn tick"));
-            rules.add(RuleResult.unknown(SpawnRule.CATEGORY_LOCAL_CAP,
-                "no spawn state yet - the server has not run a spawn tick"));
-        } else if (category.getMaxInstancesPerChunk() <= 0) {
-            // MobCategory is an extensible enum: a mod can add a category with a
-            // non-positive per-chunk max (vanilla MISC uses -1). The cap formula would
-            // report "0 / 0 used" as a permanent failure, which would be a lie.
-            String note = "this category declares no per-chunk maximum ("
-                + category.getMaxInstancesPerChunk() + ") - caps do not apply";
-            rules.add(RuleResult.skipped(SpawnRule.CATEGORY_GLOBAL_CAP, note));
-            rules.add(RuleResult.skipped(SpawnRule.CATEGORY_LOCAL_CAP, note));
-        } else {
-            int count = state.getMobCategoryCounts().getInt(category);
-            int cap = category.getMaxInstancesPerChunk() * state.getSpawnableChunkCount() / GLOBAL_CAP_DIVISOR;
-            rules.add(RuleResult.of(SpawnRule.CATEGORY_GLOBAL_CAP, count < cap,
-                count + " / " + cap, count + " of " + cap + " used across the dimension",
-                count + " / " + cap + " FULL",
-                "cap full: " + count + " of " + cap + ", over " + state.getSpawnableChunkCount()
-                    + " spawnable chunks"));
-
-            // LocalMobCapCalculator.canSpawn - the per-player slice of the cap.
-            rules.add(auditLocalCap(state, category, ChunkPos.containing(pos)));
-        }
+        rules.addAll(categoryCapRules(level, pos, category));
 
         int totalWeight = entries.stream().mapToInt(Weighted::weight).sum();
 
@@ -340,16 +317,91 @@ public final class SpawnAuditor {
 
         List<AuditReport.Candidate> candidates = new ArrayList<>(ordered.size());
         for (Weighted<MobSpawnSettings.SpawnerData> entry : ordered) {
+            // No cap rules here: the sweep already printed them once above, and a
+            // shut cap repeated on each of forty mobs buries its own reason.
             candidates.add(auditCandidate(
-                level, pos, biome, category, entry.value().type(), entry.weight(), totalWeight));
+                level, pos, biome, category, entry.value().type(), entry.weight(), totalWeight, List.of()));
         }
 
         return new AuditReport.Category(category, rules, candidates);
     }
 
     /**
+     * The two per-category caps, as their own unit because two different callers
+     * need them.
+     *
+     * <p>The sweep prints them once at the head of a category. {@link #auditType}
+     * prepends them to the one mob it was asked about, because that is the path the
+     * screen, Jade and {@code /spawndetective for} all take - and until this was
+     * split out, none of those three surfaces showed a cap row at all. A report that
+     * silently omits the gate a player is actually sitting against is the same
+     * failure as reporting it wrongly.
+     *
+     * <p>Mirrors {@code NaturalSpawner.SpawnState.canSpawnForCategoryGlobal} and
+     * {@code LocalMobCapCalculator.canSpawn}. The live counts come from the spawn
+     * state the server built on its last spawn tick; if the server has not run one
+     * yet there is nothing honest to report.
+     */
+    private static List<RuleResult> categoryCapRules(ServerLevel level, BlockPos pos, MobCategory category) {
+        NaturalSpawner.SpawnState state = level.getChunkSource().getLastSpawnState();
+        if (state == null) {
+            return List.of(
+                RuleResult.unknown(SpawnRule.CATEGORY_GLOBAL_CAP,
+                    "no spawn state yet - the server has not run a spawn tick"),
+                RuleResult.unknown(SpawnRule.CATEGORY_LOCAL_CAP,
+                    "no spawn state yet - the server has not run a spawn tick"));
+        }
+        if (category.getMaxInstancesPerChunk() <= 0) {
+            // MobCategory is an extensible enum: a mod can add a category with a
+            // non-positive per-chunk max (vanilla MISC uses -1). The cap formula would
+            // report "0 / 0 used" as a permanent failure, which would be a lie.
+            String note = "this category declares no per-chunk maximum ("
+                + category.getMaxInstancesPerChunk() + ") - caps do not apply";
+            return List.of(
+                RuleResult.skipped(SpawnRule.CATEGORY_GLOBAL_CAP, note),
+                RuleResult.skipped(SpawnRule.CATEGORY_LOCAL_CAP, note));
+        }
+
+        int count = state.getMobCategoryCounts().getInt(category);
+        int cap = category.getMaxInstancesPerChunk() * state.getSpawnableChunkCount() / GLOBAL_CAP_DIVISOR;
+        if (cap <= 0) {
+            // Same degeneracy as the branch above, from the other input. With nobody
+            // close enough to make chunks spawnable the formula collapses to zero, and
+            // vanilla's own "count < cap" then refuses - so the row would read "cap
+            // full: 0 of 0" and send a player off to kill mobs that do not exist. The
+            // real finding is that no player is near, which PLAYER_IN_SPAWN_RANGE
+            // already reports honestly; repeating it here as a cap failure would be
+            // the mod blaming the wrong rule, and on the single-mob path it would be
+            // the headline.
+            String note = "no spawnable chunks in this dimension ("
+                + state.getSpawnableChunkCount() + "), so the cap formula yields zero - "
+                + "nobody is close enough for a cap to mean anything";
+            return List.of(
+                RuleResult.skipped(SpawnRule.CATEGORY_GLOBAL_CAP, note),
+                RuleResult.skipped(SpawnRule.CATEGORY_LOCAL_CAP, note));
+        }
+
+        // The measurement is rendered on the passing branch too. "Under the cap" and
+        // "62 of 70 used" are different answers: the second says how much room is
+        // left before a green verdict flips, which is the question someone watching
+        // a farm fill up is actually asking.
+        return List.of(
+            RuleResult.of(SpawnRule.CATEGORY_GLOBAL_CAP, count < cap,
+                count + " / " + cap, count + " of " + cap + " used across the dimension",
+                count + " / " + cap + " FULL",
+                "cap full: " + count + " of " + cap + ", over " + state.getSpawnableChunkCount()
+                    + " spawnable chunks"),
+            auditLocalCap(state, category, ChunkPos.containing(pos)));
+    }
+
+    /**
      * {@code LocalMobCapCalculator.canSpawn}, reached through the spawn state's
      * calculator (access-transformed - the field is private and there is no getter).
+     *
+     * <p>Reported as a boolean rather than a count. The per-player numbers live in a
+     * private map behind a private nested class, and the three further access
+     * transformers that would reach them bind this mod to an inner class name for a
+     * figure the global row already carries in actionable form.
      */
     private static RuleResult auditLocalCap(NaturalSpawner.SpawnState state, MobCategory category, ChunkPos chunkPos) {
         try {
@@ -401,14 +453,24 @@ public final class SpawnAuditor {
      * anything spawn?", and answering it needs a way in that skips the biome list -
      * otherwise a mob missing from the list has no diagnosis at all beyond its
      * absence. Weights are reported as 0 of 0 because there is no list entry.
+     *
+     * <p>The category's caps ride along, because this is the path every interactive
+     * surface takes - the screen, the Jade tooltip and {@code /spawndetective for}
+     * all resolve through here, and none of them showed a cap row until they did.
      */
     public static AuditReport.Candidate auditType(ServerLevel level, BlockPos pos, EntityType<?> type) {
-        return auditCandidate(level, pos, level.getBiome(pos), type.getCategory(), type, 0, 0);
+        MobCategory category = type.getCategory();
+        return auditCandidate(level, pos, level.getBiome(pos), category, type, 0, 0,
+            categoryCapRules(level, pos, category));
     }
 
     /**
      * The per-type gates from {@code NaturalSpawner.isValidSpawnPostitionForType}
      * and {@code isValidPositionForMob}, in that order.
+     *
+     * @param leading rules decided before the per-type walk, prepended so the list
+     *                stays in pipeline order and {@code blocker()} keeps naming the
+     *                first real cause rather than the first per-mob one
      */
     private static AuditReport.Candidate auditCandidate(
         ServerLevel level,
@@ -417,9 +479,10 @@ public final class SpawnAuditor {
         MobCategory category,
         EntityType<?> type,
         int weight,
-        int totalWeight
+        int totalWeight,
+        List<RuleResult> leading
     ) {
-        List<RuleResult> rules = new ArrayList<>();
+        List<RuleResult> rules = new ArrayList<>(leading);
 
         rules.add(RuleResult.of(SpawnRule.TYPE_SUMMONABLE, type.canSummon(),
             "yes", "summonable",

@@ -27,20 +27,100 @@ have rejected on.
 | 5 | `PLAYER_IN_SPAWN_RANGE` | `ChunkMap.anyPlayerCloseEnoughForSpawning` | The 128-block / 8-chunk spawn sphere. |
 | 6 | `CATEGORY_GLOBAL_CAP` | `NaturalSpawner.SpawnState.canSpawnForCategoryGlobal` | `max * spawnableChunks / 289`. Counts read from the live spawn state. |
 | 7 | `CATEGORY_LOCAL_CAP` | `LocalMobCapCalculator.canSpawn` | Per-player slice. Needs the AT on `SpawnState.localMobCapCalculator`. |
-| 8 | `ANCHOR_NOT_CONDUCTOR` | `NaturalSpawner.spawnCategoryForPosition` (first branch) | Advisory: the real anchor is a random position sharing this Y. |
-| 9 | `PLAYER_DISTANCE` | `NaturalSpawner.isRightDistanceToPlayerAndSpawnPoint` | 24 blocks, i.e. `576.0` squared. |
-| 10 | `WORLD_SPAWN_DISTANCE` | same method, respawn-data branch | 24 blocks from the world spawn point, same dimension only. |
-| 11 | `BIOME_SPAWN_LIST` | `NaturalSpawner.mobsAt` | Includes the nether-fortress override **and** NeoForge's `PotentialSpawns` event. |
-| 12 | `TYPE_SUMMONABLE` | `NaturalSpawner.isValidSpawnPostitionForType` -> `EntityType.canSummon` | |
-| 13 | `DESPAWN_DISTANCE` | same method, `canSpawnFarFromPlayer` branch | Category despawn distance squared. |
-| 14 | `PLACEMENT` | `SpawnPlacements.isSpawnPositionOk` | Decomposed by hand per placement type - see below. |
-| 15 | `SPAWN_RULES` | `SpawnPlacements.checkSpawnRules` | Sampled, then attributed - see below. Fires NeoForge's `SpawnPlacementCheck`. |
-| 16 | `NO_COLLISION` | `ServerLevel.noCollision(type.getSpawnAABB(...))` | |
-| 17 | `SPAWN_CHARGE` | `NaturalSpawner.SpawnState.canSpawn` | Biome `MobSpawnCost`. Needs the AT on `SpawnState.spawnPotential`. |
-| 18 | `SPAWN_OBSTRUCTED` | `Mob.checkSpawnObstruction` | Liquid in the body, or an entity already in the space. Split out so it can be named. |
-| 19 | `POSITION_CHECK` | `EventHooks.checkSpawnPosition` | NeoForge `PositionCheck`, reported only once obstruction is ruled out. |
+| 8 | `ATTEMPT_REACH` | `NaturalSpawner.spawnCategoryForChunk` -> `getRandomPosWithin` | Informational, never a `FAIL`. How often an attempt in this chunk anchors at this Y - see below. |
+| 9 | `ANCHOR_NOT_CONDUCTOR` | `NaturalSpawner.spawnCategoryForPosition` (first branch) | Advisory: the real anchor is a random position sharing this Y. |
+| 10 | `PLAYER_DISTANCE` | `NaturalSpawner.isRightDistanceToPlayerAndSpawnPoint` | 24 blocks, i.e. `576.0` squared. |
+| 11 | `WORLD_SPAWN_DISTANCE` | same method, respawn-data branch | 24 blocks from the world spawn point, same dimension only. |
+| 12 | `BIOME_SPAWN_LIST` | `NaturalSpawner.mobsAt` | Includes the nether-fortress override **and** NeoForge's `PotentialSpawns` event. |
+| 13 | `TYPE_SUMMONABLE` | `NaturalSpawner.isValidSpawnPostitionForType` -> `EntityType.canSummon` | |
+| 14 | `DESPAWN_DISTANCE` | same method, `canSpawnFarFromPlayer` branch | Category despawn distance squared. |
+| 15 | `PLACEMENT` | `SpawnPlacements.isSpawnPositionOk` | Decomposed by hand per placement type - see below. |
+| 16 | `SPAWN_RULES` | `SpawnPlacements.checkSpawnRules` | Sampled, then attributed - see below. Fires NeoForge's `SpawnPlacementCheck`. |
+| 17 | `NO_COLLISION` | `ServerLevel.noCollision(type.getSpawnAABB(...))` | |
+| 18 | `SPAWN_CHARGE` | `NaturalSpawner.SpawnState.canSpawn` | Biome `MobSpawnCost`. Needs the AT on `SpawnState.spawnPotential`. |
+| 19 | `SPAWN_OBSTRUCTED` | `Mob.checkSpawnObstruction` | Liquid in the body, or an entity already in the space. Split out so it can be named. |
+| 20 | `POSITION_CHECK` | `EventHooks.checkSpawnPosition` | NeoForge `PositionCheck`, reported only once obstruction is ruled out. |
 
-## The two rules that are not booleans
+### Which rules reach which surface
+
+Rules 1-5 and 8-11 are walked by `SpawnAuditor.auditPosition`, which is what a probe
+click runs. Rules 6, 7 and 13-20 are walked by `auditType`, which is what the screen,
+the Jade tooltip and `/spawndetective for <entity>` all resolve through. Rule 12 is
+reached only by the whole-position sweep, which is the one caller that starts from the
+biome list rather than from a named mob.
+
+The two caps are deliberately in both: the sweep prints them once at the head of a
+category, and `auditType` prepends them to the single mob it was asked about. They
+were in neither of the interactive paths until 0.1.0-alpha.3, so a player sitting
+against a full cap read a report with every visible line green and no cap row on it
+at all. **A gate omitted from the report is as wrong as a gate reported wrongly, and
+much harder to notice.**
+
+## The three rules that are not booleans
+
+### `ATTEMPT_REACH` - a measured rate, not a gate
+
+Every other rule answers "may a mob spawn here". This one answers "how often is the
+question even asked", and it exists because a single-block, single-instant verdict
+cannot express it. In a void or skyblock world every gate can pass on a farm that
+produces nothing, and the report has no way to say why - which is the exact case the
+mod exists for, answered with a confident green.
+
+The mechanism is `NaturalSpawner.spawnCategoryForChunk`:
+
+```java
+BlockPos start = getRandomPosWithin(level, chunk);
+if (start.getY() >= level.getMinY() + 1) { spawnCategoryForPosition(...); }
+
+private static BlockPos getRandomPosWithin(Level level, LevelChunk chunk) {
+    int x = pos.getMinBlockX() + level.random.nextInt(16);
+    int z = pos.getMinBlockZ() + level.random.nextInt(16);
+    int topEmptyY = chunk.getHeight(Heightmap.Types.WORLD_SURFACE, x, z) + 1;
+    int y = Mth.randomBetweenInclusive(level.random, level.getMinY(), topEmptyY);
+    return new BlockPos(x, y, z);
+}
+```
+
+Inside `spawnCategoryForPosition` the three pack groups walk **x and z only** -
+`yStart` never moves. So a block is reachable by an attempt anchored in its own chunk
+exactly when that uniform roll lands on its Y. That is arithmetic over the chunk's
+live `WORLD_SURFACE` heightmap, not a sample and not an estimate:
+
+```
+per column:  N = topEmptyY - minY + 1
+             P = 1/N   when minY + 1 <= targetY <= topEmptyY, else 0
+overall:     the mean of P over the chunk's 256 equally likely columns
+```
+
+**An empty column produces no spawn attempt at all.** `getHeight` returns `minY - 1`
+for it, so `topEmptyY` is `minY`, so the only roll available is `minY` - which the
+`>= minY + 1` gate discards. That single fact is the whole void-world mechanic, and
+it falls out of vanilla's own arithmetic rather than out of a model of it.
+
+`ServerChunkCache.tickSpawningChunk` runs `spawnForChunk` once per eligible chunk per
+tick, one anchor roll per category, so the report quotes 20 rolls a second and says
+"for monsters" when it does. Persistent categories are the exception:
+`getFilteredSpawningCategories` only admits them when `gameTime % 400 == 0`, so
+CREATURE rolls once every 400 ticks.
+
+**What it does not claim.** It is not the farm's spawn rate, and it is not a
+rejection:
+
+- The pack walk dilutes it further in x and z, and that walk is a bounded random walk
+  rather than a closed form, so it is not folded in.
+- An anchor in a *neighbouring* chunk can walk into this block, so even a reading of
+  zero is not proof that nothing spawns here. The row says so in as many words.
+- Every later gate still applies. This is the odds beside the verdict, not a verdict.
+
+For the same reason it is **never a `FAIL`** - `PASS` or `MARGINAL` only, plus
+`UNKNOWN` when the chunk is not loaded. It sits in the world list, so a `FAIL` would
+become the headline for every mob at the position, and "cannot spawn here" about a
+block that can is the precise failure this file exists to prevent. A slow spot is
+slow, not shut.
+
+The `MARGINAL` threshold (a mean wait over 60 seconds between *attempts*, before any
+gate is consulted) is a presentation decision, not a spawn rule. It marks where the
+geometry rather than anything else in the report is what a player is waiting on.
 
 ### `PLACEMENT` - decomposed, not delegated
 
@@ -128,7 +208,14 @@ Without `localMobCapCalculator` the per-player cap cannot be read at all.
 
 ## What the mod deliberately does not claim
 
-- **The anchor-block rule (#8) is advisory.** A spawn attempt anchors on a random
+- **`ATTEMPT_REACH` (#8) measures one chunk's anchor roll, not a farm's output.** See
+  the section above for the three things it leaves out.
+- **The per-player cap (#7) is a boolean, not a count.** `LocalMobCapCalculator`
+  keeps its per-player numbers in a private map behind a private nested `MobCounts`,
+  and the three further access transformers that would reach them would bind this mod
+  to an inner class name for a figure the global row already carries in actionable
+  form. The row reports `canSpawn` and says which cap it is under.
+- **The anchor-block rule (#9) is advisory.** A spawn attempt anchors on a random
   position in the chunk that shares the candidate's Y, not on the candidate itself.
   The report says so rather than pretending the check is exact.
 - **`POSITION_CHECK` does not name the mod that vetoed.** Attributing an event

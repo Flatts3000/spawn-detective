@@ -65,9 +65,13 @@ class ReportStructureTest {
     @Test
     @DisplayName("viable means nothing blocks; viableStanding ignores the temporary")
     void candidateViability() {
-        AuditReport.Candidate blockedNow = candidate(EntityType.ZOMBIE, fail(SpawnRule.CATEGORY_GLOBAL_CAP));
+        // Deliberately not the mob cap. A full cap reports MARGINAL rather than FAIL,
+        // so "a full cap blocks this" is a state the auditor cannot produce, and a
+        // test asserting it would document behaviour the mod does not have. The
+        // spawn-cost budget is the situational rule that does still refuse outright.
+        AuditReport.Candidate blockedNow = candidate(EntityType.ZOMBIE, fail(SpawnRule.SPAWN_CHARGE));
 
-        assertFalse(blockedNow.viable(), "a full cap does block it right now");
+        assertFalse(blockedNow.viable(), "an exceeded spawn-cost budget does block it right now");
         assertTrue(blockedNow.viableStanding(), "but nothing permanent is wrong, so it would spawn later");
     }
 
@@ -104,6 +108,11 @@ class ReportStructureTest {
     @Test
     @DisplayName("a shut category gate makes every mob under it non-viable")
     void shutCategoryGate() {
+        // Contract test on the record, not a report the auditor emits: since the caps
+        // went MARGINAL, no category rule fails situationally any more. The accessors
+        // still have to behave for any rule combination - a future rule, or a mod's
+        // category - so the logic is pinned here rather than left to whatever happens
+        // to be reachable today.
         AuditReport.Category capped = new AuditReport.Category(
             MobCategory.MONSTER,
             List.of(fail(SpawnRule.CATEGORY_GLOBAL_CAP)),

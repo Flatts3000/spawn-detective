@@ -114,6 +114,31 @@ class SpawnVerdictTest {
 
             assertSame(reach, SpawnVerdict.of(position(reach), candidate(light)).caveat());
         }
+
+        @Test
+        @DisplayName("a permanent caveat outranks a temporary one")
+        void standingCaveatOutranksSituational() {
+            // A full mob cap is MARGINAL and sits at the head of the candidate's rules,
+            // and in a normal overworld it is full essentially always. Letting it win
+            // would send someone off to kill mobs when the real finding is that their
+            // platform is one column wide - the transient answer burying the standing
+            // one, which is the mistake PLAYER_DISTANCE already taught this mod once.
+            RuleResult cap = RuleResult.marginal(SpawnRule.CATEGORY_GLOBAL_CAP, "70 / 70 FULL", "full", null);
+            RuleResult reach = RuleResult.marginal(SpawnRule.ATTEMPT_REACH, "1/256, 28min", "sparse", null);
+
+            SpawnVerdict verdict = SpawnVerdict.of(position(reach), candidate(cap));
+
+            assertSame(SpawnVerdict.Tone.CAN_SPAWN, verdict.tone());
+            assertSame(reach, verdict.caveat(), "the standing qualification is the news");
+        }
+
+        @Test
+        @DisplayName("a full cap alone still qualifies the yes rather than being dropped")
+        void situationalCaveatStillReported() {
+            RuleResult cap = RuleResult.marginal(SpawnRule.CATEGORY_GLOBAL_CAP, "70 / 70 FULL", "full", null);
+
+            assertSame(cap, SpawnVerdict.of(position(), candidate(cap)).caveat());
+        }
     }
 
     @Nested

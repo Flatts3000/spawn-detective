@@ -157,7 +157,7 @@ class SpawnAttemptReachTest {
         @Test
         @DisplayName("a healthy chunk passes and carries its measurement")
         void healthyPasses() {
-            RuleResult result = SpawnAttemptReach.of(columns(65), MIN_Y, 65).describe(65);
+            RuleResult result = SpawnAttemptReach.of(columns(65), MIN_Y, 65).describe();
 
             assertSame(SpawnRule.ATTEMPT_REACH, result.rule());
             assertSame(Verdict.PASS, result.verdict());
@@ -173,7 +173,7 @@ class SpawnAttemptReachTest {
             int[] tops = voidColumns();
             tops[0] = 65;
 
-            RuleResult result = SpawnAttemptReach.of(tops, MIN_Y, 65).describe(65);
+            RuleResult result = SpawnAttemptReach.of(tops, MIN_Y, 65).describe();
 
             assertSame(Verdict.MARGINAL, result.verdict());
             assertFalse(result.verdict().blocks(), "a slow spot is not a blocked spot");
@@ -185,7 +185,7 @@ class SpawnAttemptReachTest {
         void unreachableIsStillNotAFailure() {
             // A neighbouring chunk's pack walk can still wander in, so this chunk
             // having no route is not proof that nothing ever spawns here.
-            RuleResult result = SpawnAttemptReach.of(voidColumns(), MIN_Y, 64).describe(64);
+            RuleResult result = SpawnAttemptReach.of(voidColumns(), MIN_Y, 64).describe();
 
             assertSame(Verdict.MARGINAL, result.verdict());
             assertTrue(result.detail().contains("neighbouring"),
@@ -195,8 +195,8 @@ class SpawnAttemptReachTest {
         @Test
         @DisplayName("every row names a height, since the answer is specific to one")
         void rowNamesTheHeight() {
-            assertTrue(SpawnAttemptReach.of(columns(65), MIN_Y, 65).describe(65).detail().contains("Y=65"));
-            assertTrue(SpawnAttemptReach.of(voidColumns(), MIN_Y, 65).describe(65).detail().contains("Y=65"));
+            assertTrue(SpawnAttemptReach.of(columns(65), MIN_Y, 65).describe().detail().contains("Y=65"));
+            assertTrue(SpawnAttemptReach.of(voidColumns(), MIN_Y, 65).describe().detail().contains("Y=65"));
         }
     }
 
@@ -232,7 +232,7 @@ class SpawnAttemptReachTest {
             for (int[] tops : shapes()) {
                 for (int minY : new int[] {-64, 0, -2032}) {
                     for (int target : new int[] {minY, minY + 1, 0, 64, 319, minY - 100, Integer.MAX_VALUE / 8}) {
-                        RuleResult row = SpawnAttemptReach.of(tops, minY, target).describe(target);
+                        RuleResult row = SpawnAttemptReach.of(tops, minY, target).describe();
 
                         assertFalse(row.verdict().blocks(),
                             "blocked at minY=" + minY + " target=" + target + ": " + row.detail());

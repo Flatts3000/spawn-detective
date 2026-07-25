@@ -51,7 +51,7 @@ import org.jspecify.annotations.Nullable;
  * in, and every later gate still applies. It reports one measured quantity - how
  * often an attempt in <i>this</i> chunk lands on <i>this</i> Y - and nothing more.
  */
-public record SpawnAttemptReach(int columnsReaching, int columnsTotal, double perAttempt) {
+public record SpawnAttemptReach(int targetY, int columnsReaching, int columnsTotal, double perAttempt) {
 
     /** Columns the anchor roll picks from: {@code nextInt(16)} in each of x and z. */
     public static final int COLUMNS_PER_CHUNK = 256;
@@ -102,7 +102,7 @@ public record SpawnAttemptReach(int columnsReaching, int columnsTotal, double pe
             reaching++;
             total += 1.0 / (top - minY + 1);
         }
-        return new SpawnAttemptReach(reaching, topEmptyY.length,
+        return new SpawnAttemptReach(targetY, reaching, topEmptyY.length,
             topEmptyY.length == 0 ? 0.0 : total / topEmptyY.length);
     }
 
@@ -144,7 +144,7 @@ public record SpawnAttemptReach(int columnsReaching, int columnsTotal, double pe
             return reach == null
                 ? RuleResult.unknown(SpawnRule.ATTEMPT_REACH, "chunk " + ChunkPos.containing(pos)
                     + " is not loaded here, so its surface heights cannot be read")
-                : reach.describe(pos.getY());
+                : reach.describe();
         } catch (Throwable t) {
             return RuleResult.unknown(SpawnRule.ATTEMPT_REACH,
                 "could not read this chunk's surface heights: " + t);
@@ -164,16 +164,22 @@ public record SpawnAttemptReach(int columnsReaching, int columnsTotal, double pe
     /**
      * The rule row: PASS or MARGINAL, and never FAIL. A slow spot is not a shut one.
      *
+     * <p>The height comes from the record rather than from a parameter. It is quoted
+     * in the prose beside a count that was computed for it, and taking it separately
+     * would let the two disagree - a report reading "columns reach Y=70" over a
+     * measurement made for Y=65, which is exactly the kind of confidently wrong
+     * sentence this mod exists to not produce.
+     *
      * <p>The detail is kept inside two banner lines. A caveat is shown in place of
      * "every gate passes", so one that ellipses mid-sentence would replace a complete
      * wrong answer with an incomplete one.
      */
-    public RuleResult describe(int targetY) {
+    public RuleResult describe() {
         String value = this.columnsReaching + "/" + this.columnsTotal + ", " + terseInterval();
 
         if (this.columnsReaching == 0) {
             return RuleResult.marginal(SpawnRule.ATTEMPT_REACH, value,
-                "no column in this chunk reaches Y=" + targetY
+                "no column in this chunk reaches Y=" + this.targetY
                     + "; only a pack wandering in from a neighbouring chunk could reach it",
                 "Nothing in this chunk stands this tall, so a mob would have to walk in from elsewhere.");
         }
@@ -183,7 +189,7 @@ public record SpawnAttemptReach(int columnsReaching, int columnsTotal, double pe
         // "for monsters" off the end would leave a rate that reads as true of every
         // category, and it is right for one.
         String measured = this.columnsReaching + " of " + this.columnsTotal
-            + " columns in this chunk reach Y=" + targetY
+            + " columns in this chunk reach Y=" + this.targetY
             + ", so a monster attempt lands about " + proseInterval();
 
         return this.slow()

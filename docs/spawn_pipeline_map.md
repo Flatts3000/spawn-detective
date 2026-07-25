@@ -63,11 +63,16 @@ much harder to notice.**
 ### The mob caps - competition, not refusal
 
 `canSpawnForCategoryGlobal` is `getMaxInstancesPerChunk() * spawnableChunkCount / 289`,
-where 289 is `MAGIC_NUMBER`, i.e. 17 squared. **A single player's spawn-eligible area
-is a 17x17 chunk square - exactly 289 chunks** - so that constant exists precisely to
-make one player yield the base figure. For monsters that is a cap of exactly 70, which
-is vanilla's familiar single-player hostile limit, and in any overworld with caves
-under it the count sits pinned at that ceiling more or less permanently.
+where 289 is `MAGIC_NUMBER`, i.e. 17 squared. `SPAWN_DISTANCE_CHUNK` is 8, so **a
+single player's spawn-eligible area is a 17x17 chunk square - 289 chunks, exactly the
+divisor** - and that constant exists precisely to make one player yield the base
+figure. For monsters that is a cap of 70, vanilla's familiar single-player hostile
+limit, and in any overworld with caves under it the count sits pinned at that ceiling
+more or less permanently.
+
+The count is read live rather than assumed, because it is not always the full square:
+`getNaturalSpawnChunkCount` counts the chunks actually eligible, which a world border
+or unloaded chunks can trim. The row prints the numbers it measured.
 
 So a full cap is the **steady state, not a defect**. It is the mechanism that stops
 mobs accumulating without bound, and it is working when it is full.

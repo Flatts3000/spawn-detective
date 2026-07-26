@@ -4,7 +4,7 @@ plugins {
     // CurseForgeGradle wraps the upload API so `./gradlew publishCurseForge` pushes
     // a new file to the project page. Token comes from .env (gitignored), an env
     // var, or a gradle property - never from this file.
-    id 'net.darkhax.curseforgegradle' version '1.2.30'
+    id 'net.darkhax.curseforgegradle' version '1.3.33'
 }
 
 base {

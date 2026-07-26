@@ -49,7 +49,12 @@ public record AuditReport(
 
         /** The category's own gates (caps) all permit a spawn. */
         public boolean gatesOpen() {
-            return this.rules.stream().noneMatch(r -> r.verdict().blocks());
+            return this.rules.stream().noneMatch(this::blocks);
+        }
+
+        /** A rejection this category is actually subject to. See {@link SpawnRule.Scope}. */
+        private boolean blocks(RuleResult result) {
+            return result.verdict().blocks() && result.rule().appliesTo(this.category);
         }
 
         public boolean anyViable() {
@@ -62,19 +67,19 @@ public record AuditReport(
 
         /** The first cap or list rule that rejected this whole category, if any. */
         public Optional<RuleResult> blocker() {
-            return this.rules.stream().filter(r -> r.verdict().blocks()).findFirst();
+            return this.rules.stream().filter(this::blocks).findFirst();
         }
 
         /** As {@link #blocker()}, restricted to rules of the given persistence. */
         public Optional<RuleResult> blocker(boolean standing) {
             return this.rules.stream()
-                .filter(r -> r.verdict().blocks() && r.rule().standing() == standing)
+                .filter(r -> this.blocks(r) && r.rule().standing() == standing)
                 .findFirst();
         }
 
         /** No permanent rule shuts this category - only caps and the like might. */
         public boolean standingGatesOpen() {
-            return this.rules.stream().noneMatch(r -> r.verdict().blocks() && r.rule().standing());
+            return this.rules.stream().noneMatch(r -> this.blocks(r) && r.rule().standing());
         }
 
         /** Mob types held back only by something temporary. */
@@ -114,7 +119,7 @@ public record AuditReport(
 
         /** Nothing definitively rejects this mob here. */
         public boolean viable() {
-            return this.rules.stream().noneMatch(r -> r.verdict().blocks());
+            return this.rules.stream().noneMatch(this::blocks);
         }
 
         /**
@@ -122,19 +127,24 @@ public record AuditReport(
          * situational blockers (your presence, a full cap) cleared.
          */
         public boolean viableStanding() {
-            return this.rules.stream().noneMatch(r -> r.verdict().blocks() && r.rule().standing());
+            return this.rules.stream().noneMatch(r -> this.blocks(r) && r.rule().standing());
         }
 
         /** The first blocker of the given persistence, if any. */
         public Optional<RuleResult> blocker(boolean standing) {
             return this.rules.stream()
-                .filter(r -> r.verdict().blocks() && r.rule().standing() == standing)
+                .filter(r -> this.blocks(r) && r.rule().standing() == standing)
                 .findFirst();
         }
 
         /** The first rule that rejected this mob - the headline answer for it. */
         public Optional<RuleResult> blocker() {
-            return this.rules.stream().filter(r -> r.verdict().blocks()).findFirst();
+            return this.rules.stream().filter(this::blocks).findFirst();
+        }
+
+        /** A rejection this mob is actually subject to. See {@link SpawnRule.Scope}. */
+        private boolean blocks(RuleResult result) {
+            return result.verdict().blocks() && result.rule().appliesTo(this.type.getCategory());
         }
 
         /** Chance of this entry being rolled when the category is picked, as a percentage. */
@@ -143,14 +153,22 @@ public record AuditReport(
         }
     }
 
-    /** World/chunk rules all permit a spawn - i.e. the failure is not global. */
+    /**
+     * World/chunk rules all permit a spawn - i.e. the failure is not global.
+     *
+     * <p>Only rules that bind every mob count, the same as
+     * {@link PositionReport#gatesOpen()}: Peaceful is a world fact but it is not a
+     * closed world, and the categories it does shut report it for themselves.
+     */
     public boolean worldGatesOpen() {
-        return this.world.stream().noneMatch(r -> r.verdict().blocks());
+        return this.world.stream().noneMatch(r -> r.verdict().blocks() && r.rule().appliesToEveryMob());
     }
 
     /** The single headline answer: the first world-level blocker, if any. */
     public Optional<RuleResult> worldBlocker() {
-        return this.world.stream().filter(r -> r.verdict().blocks()).findFirst();
+        return this.world.stream()
+            .filter(r -> r.verdict().blocks() && r.rule().appliesToEveryMob())
+            .findFirst();
     }
 
     /** True when at least one mob of any category can spawn at this position. */

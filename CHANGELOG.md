@@ -3,6 +3,23 @@
 This is the **1.21.1 line**. It covers this branch only; the 26.1 line has its own
 changelog on `main`.
 
+## v0.1.0-alpha.4
+
+### Fixed
+
+- **Peaceful no longer reads as a blanket "nothing spawns here".** Asking about a
+  chicken on Peaceful answered "CHICKEN IS BLOCKED RIGHT NOW - Difficulty: peaceful",
+  in a swamp that was still full of chickens. Peaceful removes the hostile categories
+  from the spawn tick and leaves every other one running normally, so the difficulty
+  row is now allowed to answer only for the mobs it actually stops. It still shows on
+  the world list, where it belongs, and reads `n/a` beside a mob it has no say over.
+- **A monster on Peaceful is no longer told its problem is permanent.** The report
+  answered a zombie with "cannot spawn here - the mob's own spawn rules", listing
+  light, block below and biome as leads. None of that had been measured: Peaceful
+  short-circuits the mob's spawn predicate before the position is looked at, so every
+  roll fails whatever the spot is like. The report now says so and names the
+  difficulty, which is a setting one command reverts, not a fault in the block.
+
 ## v0.1.0-alpha.3
 
 ### Fixed

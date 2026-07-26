@@ -83,8 +83,12 @@ public final class ChatReport {
         // Unlike the sweep, this prints the passing gates too: someone asking about
         // one specific mob is usually checking their own reasoning, and what passed
         // is half of that answer.
+        //
+        // Read through asAppliedTo, because the world list is shared by every mob at
+        // the position and one row on it is not: a red "Difficulty: peaceful" under a
+        // green "chicken can spawn here" is the report arguing with itself.
         for (RuleResult result : world) {
-            lines.add(indent(ruleLine(result)));
+            lines.add(indent(ruleLine(result.asAppliedTo(candidate.type().getCategory()))));
         }
         for (RuleResult result : candidate.rules()) {
             lines.add(indent(ruleLine(result)));

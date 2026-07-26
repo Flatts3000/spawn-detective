@@ -3,6 +3,7 @@ package com.flatts.spawndetective.audit;
 import io.netty.buffer.ByteBuf;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.world.entity.MobCategory;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -62,7 +63,12 @@ public record RuleResult(SpawnRule rule, Verdict verdict, String value, String d
     }
 
     public static RuleResult unknown(SpawnRule rule, String detail) {
-        return new RuleResult(rule, Verdict.UNKNOWN, "unknown", detail, null);
+        return unknown(rule, "unknown", detail);
+    }
+
+    /** As above, keeping the measurement that made the rule unmeasurable. */
+    public static RuleResult unknown(SpawnRule rule, String value, String detail) {
+        return new RuleResult(rule, Verdict.UNKNOWN, value, detail, null);
     }
 
     public static RuleResult skipped(SpawnRule rule, String detail) {
@@ -74,6 +80,26 @@ public record RuleResult(SpawnRule rule, Verdict verdict, String value, String d
         SpawnRule rule, boolean ok, String passValue, String passDetail, String failValue, String failDetail
     ) {
         return ok ? pass(rule, passValue, passDetail) : fail(rule, failValue, failDetail);
+    }
+
+    /**
+     * This row as it reads for one mob category, so a surface can print the world
+     * list beside a single mob's verdict without the two contradicting each other.
+     *
+     * <p>Only {@link SpawnRule.Scope#HOSTILE} rules are ever changed, and only for a
+     * friendly category: the measurement is kept, the verdict becomes
+     * {@link Verdict#SKIPPED}. Peaceful really is worth showing on the world list -
+     * it is true of the world - but shown in red beside a green "chicken can spawn
+     * here" it reads as the report disagreeing with itself, which for a diagnostic
+     * is the same damage as being wrong.
+     */
+    public RuleResult asAppliedTo(MobCategory category) {
+        if (this.rule.appliesTo(category)) {
+            return this;
+        }
+        return new RuleResult(this.rule, Verdict.SKIPPED, this.value,
+            this.detail + ". This gate only applies to hostile categories, and "
+                + category.getName() + " is not one", null);
     }
 
     /** The advice to show: the auditor's specific finding, else the rule's generic one. */

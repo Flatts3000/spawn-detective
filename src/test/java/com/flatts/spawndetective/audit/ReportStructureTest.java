@@ -49,6 +49,19 @@ class ReportStructureTest {
     }
 
     @Test
+    @DisplayName("a gate only some mobs are subject to does not close the position")
+    void positionGatesIgnoreScopedRules() {
+        // "Whatever the mob" is the claim gatesOpen() makes, and peaceful is not that:
+        // it stops the hostile categories and leaves the swamp full of chickens. The
+        // screen reads this to decide whether to open the world section on "blocked".
+        PositionReport peaceful = new PositionReport("d", POS, "b",
+            List.of(pass(SpawnRule.WORLD_BORDER), fail(SpawnRule.DIFFICULTY)), List.of());
+
+        assertTrue(peaceful.gatesOpen());
+        assertTrue(peaceful.blocker().isEmpty(), "there is no blocker every mob here shares");
+    }
+
+    @Test
     @DisplayName("the position's own blocker ignores temporary rules")
     void positionBlockerIsStandingOnly() {
         // A shut cap or a nearby player is real, but it is not a property of the
@@ -82,6 +95,16 @@ class ReportStructureTest {
 
         assertFalse(blocked.viable());
         assertFalse(blocked.viableStanding());
+    }
+
+    @Test
+    @DisplayName("a candidate ignores rules its category is not subject to")
+    void candidateIgnoresScopedRules() {
+        // Contract test on the record: the auditor keeps the hostile-only rules in the
+        // world list today, but viable() answers for one named mob and must agree with
+        // SpawnVerdict wherever the rule is carried from.
+        assertTrue(candidate(EntityType.CHICKEN, fail(SpawnRule.DIFFICULTY)).viable());
+        assertFalse(candidate(EntityType.ZOMBIE, fail(SpawnRule.DIFFICULTY)).viable());
     }
 
     @Test

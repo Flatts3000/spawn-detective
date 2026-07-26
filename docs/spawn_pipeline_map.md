@@ -21,7 +21,7 @@ have rejected on.
 | # | `SpawnRule` | Vanilla call site | Notes |
 |---|---|---|---|
 | 1 | `GAMERULE_MOB_SPAWNING` | `ServerChunkCache.tickChunks` -> `GameRules.SPAWN_MOBS` | False empties the whole category list. |
-| 2 | `DIFFICULTY` | `Monster.checkMonsterSpawnRules` | Peaceful blocks monsters only; animals still spawn. |
+| 2 | `DIFFICULTY` | `ServerChunkCache.tickChunks` -> `NaturalSpawner.getFilteredSpawningCategories`, and again per mob in `Monster.checkMonsterSpawnRules` | Peaceful drops the hostile categories and nothing else. **Scoped, so it can only answer for the mobs it binds** - see below. |
 | 3 | `WORLD_BORDER` | `ServerLevel.canSpawnEntitiesInChunk` (border half) | Split out from #4 so the report names which half failed. |
 | 4 | `CHUNK_ENTITY_TICKING` | `ServerLevel.canSpawnEntitiesInChunk` -> `entityManager.canPositionTick` | This is simulation distance, not render distance. |
 | 5 | `PLAYER_IN_SPAWN_RANGE` | `ChunkMap.anyPlayerCloseEnoughForSpawning` | The 128-block / 8-chunk spawn sphere. |
@@ -55,6 +55,56 @@ were in neither of the interactive paths until 0.1.0-alpha.3, so a player sittin
 against a full cap read a report with every visible line green and no cap row on it
 at all. **A gate omitted from the report is as wrong as a gate reported wrongly, and
 much harder to notice.**
+
+### Scope: a world-list row that is not true of every mob
+
+Rules 1-11 are evaluated once per position and shared by every mob asked about
+there. Almost all of them earn that: a chunk that is not ticking, a world border, a
+player 12 blocks away are facts about the place. `DIFFICULTY` is not. Vanilla applies
+it in `getFilteredSpawningCategories`, which keeps a category when
+
+```java
+spawnEnemies || category.isFriendly()
+```
+
+so Peaceful removes the hostile categories from the tick and leaves every other one
+spawning exactly as before. A swamp on Peaceful is still full of chickens.
+
+Shared row, partial truth: the screen answered **"CHICKEN IS BLOCKED RIGHT NOW -
+Difficulty: peaceful"** about a block that was spawning chickens. This is the same
+shape as `ATTEMPT_REACH` below - anything in the world list becomes the headline for
+every mob at the position - and it has the same resolution: the row may not be
+allowed to answer for mobs it has no jurisdiction over.
+
+So `SpawnRule` carries a `Scope`, `ANY` or `HOSTILE`, read off the live
+`MobCategory.isFriendly()` rather than a list of category names, because
+`MobCategory` is extensible and a mod's own category answers for itself. Consequences,
+each pinned by a test:
+
+- `SpawnVerdict` filters both its blocker search and its caveat search by the
+  candidate's category. A rule that could never say no must not get to attach a
+  "yes, but" either.
+- `PositionReport.gatesOpen()` and `AuditReport.worldGatesOpen()` count only `ANY`
+  rules. Their claim is "whatever the mob", and Peaceful is not that.
+- Surfaces that print the shared world list beside one mob's verdict - the screen and
+  `/spawndetective for` - render each row through `RuleResult.asAppliedTo`, which
+  keeps the measurement and drops the verdict to `n/a`. Peaceful is still worth
+  reading on the world list; in red under a green "chicken can spawn here" it is the
+  report arguing with itself.
+
+`SERVER_SPAWN_ENEMIES` carries the same scope for the same reason. It is declared but
+not yet emitted: `spawn-monsters=false` on a dedicated server is a real gate this mod
+does not currently report.
+
+**The other half of Peaceful.** `Monster.checkMonsterSpawnRules` tests the difficulty
+before it looks at the position, so on Peaceful the sampled predicate at #16 refuses
+under every spawn reason and the attribution has no difference left to read. It
+answered a zombie with a permanent "cannot spawn here - the mob's own spawn rules",
+offering light, floor and biome as leads, none of which had been measured. `#16`
+reports `UNKNOWN` with the reason in that case - but only after sampling, so a modded
+hostile mob whose predicate ignores the difficulty keeps its real reading - and the
+headline falls through to `DIFFICULTY`, which is situational and says to raise the
+difficulty.
 
 ## The three rules that are not booleans
 

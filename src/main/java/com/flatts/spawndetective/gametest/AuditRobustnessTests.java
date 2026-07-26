@@ -8,6 +8,7 @@ import com.flatts.spawndetective.audit.SpawnAuditor;
 import com.flatts.spawndetective.audit.Verdict;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Stream;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.gametest.framework.GameTestAssertException;
@@ -244,8 +245,13 @@ final class AuditRobustnessTests {
             AuditReport.Candidate candidate = SpawnAuditor.auditType(helper.getLevel(), pos, type);
             SpawnVerdict verdict = SpawnVerdict.of(position, candidate);
 
-            boolean anythingBlocks = position.world().stream().anyMatch(r -> r.verdict().blocks())
-                || candidate.rules().stream().anyMatch(r -> r.verdict().blocks());
+            // "Shown beneath it" means shown as this mob's evidence. A world row the
+            // mob's category is not subject to renders as n/a, not as a red failure,
+            // so counting it here would demand the verdict contradict what is on
+            // screen: on peaceful every chicken would have to read as blocked.
+            MobCategory category = type.getCategory();
+            boolean anythingBlocks = Stream.concat(position.world().stream(), candidate.rules().stream())
+                .anyMatch(r -> r.verdict().blocks() && r.rule().appliesTo(category));
 
             if (verdict.canSpawn() && anythingBlocks) {
                 throw fail(helper, BuiltInRegistries.ENTITY_TYPE.getKey(type).getPath()

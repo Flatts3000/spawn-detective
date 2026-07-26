@@ -208,8 +208,14 @@ public class SpawnReportScreen extends Screen {
                 : "blocked"),
             EXPANDED.contains(WORLD_SECTION), worldOk));
         if (EXPANDED.contains(WORLD_SECTION)) {
+            // Read through asAppliedTo once a mob is named. The world list is shared
+            // by everything at this position and one row on it is not: Peaceful shuts
+            // the hostile categories only, and a red "Difficulty: peaceful" sitting
+            // under a green "chicken can spawn here" is the screen arguing with
+            // itself, which costs the report its reader either way round.
+            MobCategory asked = answer == null ? null : answer.type().getCategory();
             for (RuleResult result : this.position.world()) {
-                built.add(new ReportRow.Rule(result, 1));
+                built.add(new ReportRow.Rule(asked == null ? result : result.asAppliedTo(asked), 1));
             }
         }
 
@@ -375,7 +381,13 @@ public class SpawnReportScreen extends Screen {
                 // to a mob that spawns on every attempt.
                 case CAN_SPAWN -> resolved.caveat() == null
                     ? new Banner(TEXT_GOOD, mob + " CAN SPAWN HERE",
-                        wrap("Every gate passes, at this position and in this world right now.", textWidth, 2),
+                        // "Every gate this mob has to clear", not "every gate": since
+                        // the difficulty row became scoped, the world list can hold a
+                        // failing rule that this mob is not subject to. The flat
+                        // sentence claimed more than the screen had checked, over a
+                        // world list showing peaceful greyed out two rows below it.
+                        wrap("Every gate this mob has to clear passes, at this position and in this "
+                            + "world right now.", textWidth, 2),
                         null)
                     : new Banner(TEXT_WARN, mob + " CAN SPAWN HERE",
                         wrap(capitalise(resolved.caveat().detail()) + ".", textWidth, 2),

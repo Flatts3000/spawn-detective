@@ -31,7 +31,11 @@ class SpawnVerdictTest {
     }
 
     private static AuditReport.Candidate candidate(RuleResult... rules) {
-        return new AuditReport.Candidate(EntityType.ZOMBIE, 1, 1, List.of(rules));
+        return candidate(EntityType.ZOMBIE, rules);
+    }
+
+    private static AuditReport.Candidate candidate(EntityType<?> type, RuleResult... rules) {
+        return new AuditReport.Candidate(type, 1, 1, List.of(rules));
     }
 
     private static RuleResult passing(SpawnRule rule) {
@@ -228,6 +232,61 @@ class SpawnVerdictTest {
                     "blocked on " + rule + " but named no blocker; an unexplained no is not an answer");
                 assertEquals(rule, verdict.blocker().rule());
             }
+        }
+    }
+
+    /**
+     * The world list is shared by every mob at the position; one row on it is not.
+     *
+     * <p>Peaceful drops the hostile categories in
+     * {@code NaturalSpawner.getFilteredSpawningCategories} and leaves every other one
+     * alone, but the row lives in the world list because that is the layer vanilla
+     * decides it at. Resolving a chicken against it shipped "CHICKEN IS BLOCKED RIGHT
+     * NOW - Difficulty: peaceful" over a swamp that was still spawning chickens.
+     *
+     * <p>Same failure as {@code ATTEMPT_REACH} before it was made incapable of
+     * failing: a row in the shared list becomes the headline for every mob at the
+     * position, so one that is not true of every mob must not be able to answer for
+     * them all.
+     */
+    @Nested
+    @DisplayName("when a rule only binds some mobs")
+    class Scoped {
+
+        @Test
+        @DisplayName("peaceful does not block an animal")
+        void hostileRuleSparesFriendlyMob() {
+            SpawnVerdict verdict = SpawnVerdict.of(
+                position(blocking(SpawnRule.DIFFICULTY)),
+                candidate(EntityType.CHICKEN, passing(SpawnRule.PLACEMENT)));
+
+            assertSame(SpawnVerdict.Tone.CAN_SPAWN, verdict.tone(),
+                "peaceful stops monsters; a swamp on peaceful is still full of chickens");
+            assertNull(verdict.blocker());
+        }
+
+        @Test
+        @DisplayName("peaceful still blocks a monster")
+        void hostileRuleStillBinds() {
+            SpawnVerdict verdict = SpawnVerdict.of(
+                position(blocking(SpawnRule.DIFFICULTY)),
+                candidate(EntityType.ZOMBIE, passing(SpawnRule.PLACEMENT)));
+
+            assertSame(SpawnVerdict.Tone.BLOCKED_NOW, verdict.tone(),
+                "the difficulty is a setting, so it reads as temporary");
+            assertSame(SpawnRule.DIFFICULTY, verdict.blocker().rule());
+        }
+
+        @Test
+        @DisplayName("a scoped-out rule cannot qualify the answer either")
+        void scopedRuleIsNotACaveat() {
+            // The filter has to be the same on both searches. A rule that was never
+            // able to say no must not be allowed to attach a "yes, but" to the answer.
+            RuleResult marginal =
+                RuleResult.marginal(SpawnRule.DIFFICULTY, "peaceful", "hostile mobs off", null);
+
+            assertNull(SpawnVerdict.of(position(marginal), candidate(EntityType.CHICKEN)).caveat());
+            assertSame(marginal, SpawnVerdict.of(position(marginal), candidate(EntityType.ZOMBIE)).caveat());
         }
     }
 }

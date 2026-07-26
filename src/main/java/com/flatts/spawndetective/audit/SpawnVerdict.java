@@ -3,6 +3,7 @@ package com.flatts.spawndetective.audit;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Stream;
+import net.minecraft.world.entity.MobCategory;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -46,6 +47,13 @@ public record SpawnVerdict(Tone tone, @Nullable RuleResult blocker, @Nullable Ru
      * <p>A permanent blocker outranks a temporary one regardless of order, because
      * "the floor is wrong" and "you are standing here" call for opposite actions and
      * the permanent one is the news.
+     *
+     * <p>Rules the mob's category is not subject to are not consulted at all. The
+     * world list is shared by every mob at the position, and one row on it is not
+     * true of all of them: Peaceful stops the hostile categories and nothing else,
+     * so resolving a chicken against it produced "CHICKEN IS BLOCKED RIGHT NOW -
+     * Difficulty: peaceful" in a swamp that was still spawning chickens. See
+     * {@link SpawnRule.Scope}.
      */
     public static SpawnVerdict of(PositionReport position, AuditReport.Candidate candidate) {
         return of(position.world(), candidate);
@@ -73,9 +81,23 @@ public record SpawnVerdict(Tone tone, @Nullable RuleResult blocker, @Nullable Ru
     private static Optional<RuleResult> firstBlocker(
         List<RuleResult> world, AuditReport.Candidate candidate, boolean standing
     ) {
-        return Stream.concat(world.stream(), candidate.rules().stream())
+        return applicable(world, candidate)
             .filter(r -> r.verdict().blocks() && r.rule().standing() == standing)
             .findFirst();
+    }
+
+    /**
+     * The whole pipeline in vanilla's order, minus the gates this mob is not subject
+     * to.
+     *
+     * <p>The single place the scope filter is applied, so a rule cannot be scoped out
+     * of the blocker search and left in the caveat search - which would qualify a yes
+     * with a rule that was never able to say no.
+     */
+    private static Stream<RuleResult> applicable(List<RuleResult> world, AuditReport.Candidate candidate) {
+        MobCategory category = candidate.type().getCategory();
+        return Stream.concat(world.stream(), candidate.rules().stream())
+            .filter(r -> r.rule().appliesTo(category));
     }
 
     /**
@@ -105,7 +127,7 @@ public record SpawnVerdict(Tone tone, @Nullable RuleResult blocker, @Nullable Ru
     private static Optional<RuleResult> caveatOf(
         List<RuleResult> world, AuditReport.Candidate candidate, boolean standing
     ) {
-        return Stream.concat(world.stream(), candidate.rules().stream())
+        return applicable(world, candidate)
             .filter(r -> r.verdict() == Verdict.MARGINAL && r.rule().standing() == standing)
             .findFirst();
     }

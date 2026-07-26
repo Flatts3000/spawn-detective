@@ -43,20 +43,27 @@ public record PositionReport(
         ByteBufCodecs.registry(Registries.ENTITY_TYPE).apply(ByteBufCodecs.list()), PositionReport::suggestions,
         PositionReport::new);
 
-    /** No world or chunk gate rejects a spawn here, whatever the mob. */
+    /**
+     * No world or chunk gate rejects a spawn here, whatever the mob.
+     *
+     * <p>"Whatever the mob" is the whole claim, so a gate that only some mobs are
+     * subject to cannot answer it. Peaceful shuts the hostile categories and leaves
+     * the rest untouched, which is not this position being closed.
+     */
     public boolean gatesOpen() {
-        return this.world.stream().noneMatch(r -> r.verdict().blocks());
+        return this.world.stream().noneMatch(r -> r.verdict().blocks() && r.rule().appliesToEveryMob());
     }
 
     /**
      * A world-level blocker that no mob can get past, if there is one.
      *
      * <p>Restricted to standing rules: the situational ones are dominated by the
-     * observer's own presence, which the audit already discounts.
+     * observer's own presence, which the audit already discounts. And to rules that
+     * bind every mob, for the reason given on {@link #gatesOpen()}.
      */
     public Optional<RuleResult> blocker() {
         return this.world.stream()
-            .filter(r -> r.verdict().blocks() && r.rule().standing())
+            .filter(r -> r.verdict().blocks() && r.rule().standing() && r.rule().appliesToEveryMob())
             .findFirst();
     }
 

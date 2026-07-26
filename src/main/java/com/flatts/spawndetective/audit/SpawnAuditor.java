@@ -197,12 +197,15 @@ public final class SpawnAuditor {
             "true", "doMobSpawning is true",
             "false", "doMobSpawning is false - nothing spawns naturally anywhere in this world"));
 
-        // Monster.checkMonsterSpawnRules: peaceful rejects every monster. Animals
-        // still spawn, so this is reported rather than treated as a global stop.
+        // NaturalSpawner.getFilteredSpawningCategories keeps a category when
+        // "spawnEnemies || category.isFriendly()", so peaceful drops the hostile
+        // categories and leaves every other one spawning normally. The rule is tagged
+        // SpawnRule.Scope.HOSTILE for exactly that reason: it is evaluated once here,
+        // where vanilla decides it, but it may only answer for the mobs it binds.
         Difficulty difficulty = level.getDifficulty();
         results.add(difficulty == Difficulty.PEACEFUL
             ? RuleResult.fail(SpawnRule.DIFFICULTY, "peaceful",
-                "Peaceful - monsters cannot spawn (animals still can)")
+                "Peaceful - hostile mobs are switched off, every other category still spawns")
             : RuleResult.pass(SpawnRule.DIFFICULTY, difficulty.getSerializedName(),
                 "difficulty is " + difficulty.getSerializedName()));
 
@@ -713,6 +716,12 @@ public final class SpawnAuditor {
         if (natural == total) {
             return RuleResult.pass(SpawnRule.SPAWN_RULES, "pass", "passes every roll");
         }
+        if (natural == 0 && peacefulAccountsForIt(level, type)) {
+            return RuleResult.unknown(SpawnRule.SPAWN_RULES, "peaceful",
+                "fails every roll, and the difficulty is peaceful - a hostile mob is refused before "
+                    + "anything about this spot is consulted, so nothing here can be measured until the "
+                    + "difficulty is raised");
+        }
 
         Cause cause = attributeSpawnRuleFailure(level, pos, type, seeds, natural);
         // Terse: this rides in a narrow table column beside the rule's name.
@@ -724,6 +733,26 @@ public final class SpawnAuditor {
         return natural == 0
             ? RuleResult.fail(SpawnRule.SPAWN_RULES, cause.value(), detail, cause.remedy())
             : RuleResult.marginal(SpawnRule.SPAWN_RULES, cause.value() + rate, detail, cause.remedy());
+    }
+
+    /**
+     * Whether Peaceful alone explains a predicate that rejected every roll.
+     *
+     * <p>{@code Monster.checkMonsterSpawnRules} tests the difficulty first, before it
+     * looks at the position at all, so on Peaceful the per-type predicate refuses
+     * under every spawn reason and the attribution has no difference left to read.
+     * The report answered a zombie with "cannot spawn here - the mob's own spawn
+     * rules", offering light, floor and biome as leads: a permanent-sounding cause,
+     * none of it measured, for a setting one command reverts.
+     *
+     * <p>Checked after sampling rather than instead of it. A modded hostile mob whose
+     * predicate ignores the difficulty keeps its real measurement and its real
+     * attribution; only one that really did reject everything gets this answer.
+     */
+    private static boolean peacefulAccountsForIt(ServerLevel level, EntityType<?> type) {
+        // Vanilla's own expression from getFilteredSpawningCategories, read off the
+        // live category rather than a list of names, since MobCategory is extensible.
+        return level.getDifficulty() == Difficulty.PEACEFUL && !type.getCategory().isFriendly();
     }
 
     /** What the auditor concluded, in the three lengths the report needs. */

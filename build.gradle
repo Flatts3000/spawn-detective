@@ -82,8 +82,8 @@ dependencies {
     // JEI - compileOnly API so the @JeiPlugin class compiles, runtimeOnly jar so dev
     // sessions actually show the info page. This mod has no recipes; the plugin
     // exists to document the item's gestures where people look for item help.
-    compileOnly "mezz.jei:jei-26.1.2-neoforge-api:29.6.2.38"
-    runtimeOnly "mezz.jei:jei-26.1.2-neoforge:29.6.2.38"
+    compileOnly "mezz.jei:jei-26.1.2-neoforge-api:29.19.0.51"
+    runtimeOnly "mezz.jei:jei-26.1.2-neoforge:29.19.0.51"
 
     // Jade - compileOnly ONLY. Jade stays a manual run/mods drop-in at runtime;
     // adding it runtimeOnly would double-load against the drop-in and trip

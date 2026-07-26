@@ -384,7 +384,13 @@ public class SpawnReportScreen extends Screen {
                 // to a mob that spawns on every attempt.
                 case CAN_SPAWN -> resolved.caveat() == null
                     ? new Banner(TEXT_GOOD, mob + " CAN SPAWN HERE",
-                        wrap("Every gate passes, at this position and in this world right now.", textWidth, 2),
+                        // "Every gate this mob has to clear", not "every gate": since
+                        // the difficulty row became scoped, the world list can hold a
+                        // failing rule that this mob is not subject to. The flat
+                        // sentence claimed more than the screen had checked, over a
+                        // world list showing peaceful greyed out two rows below it.
+                        wrap("Every gate this mob has to clear passes, at this position and in this "
+                            + "world right now.", textWidth, 2),
                         null)
                     : new Banner(TEXT_WARN, mob + " CAN SPAWN HERE",
                         wrap(capitalise(resolved.caveat().detail()) + ".", textWidth, 2),

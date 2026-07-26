@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import net.minecraft.world.entity.MobCategory;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -68,6 +69,33 @@ class RuleResultTest {
         assertFalse(RuleResult.unknown(SpawnRule.PLACEMENT, "d").verdict().blocks());
         assertFalse(RuleResult.skipped(SpawnRule.PLACEMENT, "d").verdict().blocks());
         assertFalse(RuleResult.marginal(SpawnRule.PLACEMENT, "v", "d", null).verdict().blocks());
+    }
+
+    @Test
+    @DisplayName("a row a mob is not subject to reads as n/a, keeping its measurement")
+    void appliedToAFriendlyCategory() {
+        // The surfaces print the shared world list beside one mob's verdict, so a red
+        // "Difficulty: peaceful" under a green "chicken can spawn here" is the report
+        // arguing with itself. The measurement stays: peaceful is still true of the
+        // world, and a reader who came looking for it should find it.
+        RuleResult peaceful = RuleResult.fail(SpawnRule.DIFFICULTY, "peaceful", "hostile mobs are off");
+
+        RuleResult forChicken = peaceful.asAppliedTo(MobCategory.CREATURE);
+        assertSame(Verdict.SKIPPED, forChicken.verdict());
+        assertEquals("peaceful", forChicken.summary(), "the reading is kept, only the verdict changes");
+        assertTrue(forChicken.detail().contains("creature"), "it has to say why it does not apply");
+
+        assertSame(peaceful, peaceful.asAppliedTo(MobCategory.MONSTER), "monsters are still bound by it");
+    }
+
+    @Test
+    @DisplayName("a universal row is returned untouched for every category")
+    void appliedToLeavesUniversalRulesAlone() {
+        RuleResult border = RuleResult.fail(SpawnRule.WORLD_BORDER, "outside", "beyond the border");
+
+        for (MobCategory category : MobCategory.values()) {
+            assertSame(border, border.asAppliedTo(category));
+        }
     }
 
     @Test

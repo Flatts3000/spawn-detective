@@ -1,5 +1,7 @@
 package com.flatts.spawndetective.audit;
 
+import net.minecraft.world.entity.MobCategory;
+
 /**
  * Every gate a natural spawn must clear, in the order
  * {@link net.minecraft.world.level.NaturalSpawner} applies them.
@@ -14,6 +16,7 @@ package com.flatts.spawndetective.audit;
  * @param title      short human-readable name shown in the report
  * @param remedy     what a player would actually do about a failure, or null when
  *                   the rule is informational
+ * @param scope      which mobs the rule is able to reject - see {@link Scope}
  */
 public enum SpawnRule {
 
@@ -21,12 +24,17 @@ public enum SpawnRule {
     /** {@code ServerChunkCache.tickChunks}: gamerule doMobSpawning. */
     GAMERULE_MOB_SPAWNING(Layer.WORLD, Persistence.SITUATIONAL, "Gamerule doMobSpawning",
         "Run /gamerule doMobSpawning true."),
-    /** {@code Monster.checkMonsterSpawnRules}: peaceful kills every monster spawn. */
+    /**
+     * Peaceful, read at {@code NaturalSpawner.getFilteredSpawningCategories} as
+     * {@code spawnEnemies || category.isFriendly()} and again per mob in
+     * {@code Monster.checkMonsterSpawnRules}. Hostile categories only.
+     */
     DIFFICULTY(Layer.WORLD, Persistence.SITUATIONAL, "Difficulty",
-        "Monsters never spawn on Peaceful. Raise the difficulty."),
+        "Monsters never spawn on Peaceful. Raise the difficulty.", Scope.HOSTILE),
     /** {@code ServerChunkCache.spawnEnemies} - the server's own enemy-spawn toggle. */
     SERVER_SPAWN_ENEMIES(Layer.WORLD, Persistence.SITUATIONAL, "Server enemy spawning",
-        "The server has enemy spawning switched off (spawn-monsters=false or Peaceful)."),
+        "The server has enemy spawning switched off (spawn-monsters=false or Peaceful).",
+        Scope.HOSTILE),
 
     // ---------------------------------------------------------------- chunk
     /** {@code ServerLevel.canSpawnEntitiesInChunk} - entity-ticking, i.e. simulation distance. */
@@ -119,6 +127,38 @@ public enum SpawnRule {
         SITUATIONAL
     }
 
+    /**
+     * Which mobs a rule is capable of rejecting.
+     *
+     * <p>Almost every gate here is true of the position and therefore of everything
+     * standing on it. Peaceful is not. Vanilla applies it in
+     * {@code NaturalSpawner.getFilteredSpawningCategories}, which keeps a category
+     * when {@code spawnEnemies || category.isFriendly()} - so it drops the hostile
+     * categories and leaves every other one spawning exactly as before. A swamp on
+     * Peaceful still fills with chickens.
+     *
+     * <p>The rule is still evaluated once, in the world list, because that is the
+     * layer vanilla decides it at and because someone on Peaceful needs to see it
+     * said. Scope is what stops that one shared row answering for mobs it has no
+     * jurisdiction over: the screen shipped "CHICKEN IS BLOCKED RIGHT NOW -
+     * Difficulty: peaceful" over a swamp full of chickens.
+     *
+     * <p>Same lesson as {@link #ATTEMPT_REACH}, which is documented at length in
+     * {@code docs/spawn_pipeline_map.md}: a row in the world list becomes the
+     * headline for every mob at the position, so one that is not true of every mob
+     * must say so in a form the resolver can act on.
+     */
+    public enum Scope {
+        /** Decided by the position, so it rejects anything that would stand there. */
+        ANY,
+        /**
+         * Only categories vanilla counts as hostile, i.e. {@code !isFriendly()}.
+         * Read from the live {@link MobCategory} rather than a list of names, because
+         * the enum is extensible and a mod's own category declares its own answer.
+         */
+        HOSTILE
+    }
+
     /** Scope a rule is decided at. Drives report grouping and the order of the sections. */
     public enum Layer {
         WORLD("World"),
@@ -141,16 +181,42 @@ public enum SpawnRule {
     private final Persistence persistence;
     private final String title;
     private final String remedy;
+    private final Scope scope;
 
     SpawnRule(Layer layer, Persistence persistence, String title, String remedy) {
+        this(layer, persistence, title, remedy, Scope.ANY);
+    }
+
+    SpawnRule(Layer layer, Persistence persistence, String title, String remedy, Scope scope) {
         this.layer = layer;
         this.persistence = persistence;
         this.title = title;
         this.remedy = remedy;
+        this.scope = scope;
     }
 
     public Persistence persistence() {
         return this.persistence;
+    }
+
+    public Scope scope() {
+        return this.scope;
+    }
+
+    /** True when this rule's answer holds for every mob at the position. */
+    public boolean appliesToEveryMob() {
+        return this.scope == Scope.ANY;
+    }
+
+    /**
+     * True when this rule is one of the gates the given category has to clear.
+     *
+     * <p>A rule that does not apply is not a pass and not a failure - it was never
+     * consulted for this mob, and reading its result as either is how the report
+     * blamed Peaceful for a chicken.
+     */
+    public boolean appliesTo(MobCategory category) {
+        return this.scope == Scope.ANY || !category.isFriendly();
     }
 
     /** True when this rule's verdict would still hold once every player walked away. */

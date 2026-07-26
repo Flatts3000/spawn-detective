@@ -10,6 +10,7 @@ import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import net.minecraft.world.entity.MobCategory;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -32,6 +33,19 @@ class SpawnRuleTest {
      * from the code under test cannot fail, and mis-tagging a rule is exactly the
      * mistake that would make a permanent problem read as temporary.
      */
+    /**
+     * The rules that only some mobs are subject to, spelled out for the same reason
+     * as {@link #SITUATIONAL}.
+     *
+     * <p>Scoping a rule wrongly is silent in both directions and wrong in both. Give
+     * a universal rule {@code HOSTILE} and the report stops mentioning it for the
+     * animals it does stop; give a hostile-only rule {@code ANY} and the report goes
+     * back to answering "CHICKEN IS BLOCKED RIGHT NOW - Difficulty: peaceful".
+     */
+    private static final Set<SpawnRule> HOSTILE_ONLY = EnumSet.of(
+        SpawnRule.DIFFICULTY,
+        SpawnRule.SERVER_SPAWN_ENEMIES);
+
     private static final Set<SpawnRule> SITUATIONAL = EnumSet.of(
         SpawnRule.GAMERULE_MOB_SPAWNING,
         SpawnRule.DIFFICULTY,
@@ -91,6 +105,47 @@ class SpawnRuleTest {
         }
         assertEquals(SITUATIONAL, tagged,
             "a rule changed persistence; that flips whether its failure reads as permanent");
+    }
+
+    @Test
+    @DisplayName("scope tagging matches the documented set")
+    void scopeIsTaggedAsDocumented() {
+        Set<SpawnRule> tagged = EnumSet.noneOf(SpawnRule.class);
+        for (SpawnRule rule : SpawnRule.values()) {
+            if (!rule.appliesToEveryMob()) {
+                tagged.add(rule);
+            }
+        }
+        assertEquals(HOSTILE_ONLY, tagged,
+            "a rule changed scope; that decides which mobs it is allowed to answer for");
+    }
+
+    @Test
+    @DisplayName("a hostile-only rule binds monsters and nothing else")
+    void hostileScopeFollowsTheCategory() {
+        // Read off MobCategory.isFriendly(), which is vanilla's own test in
+        // getFilteredSpawningCategories, so a mod's category answers for itself.
+        for (SpawnRule rule : HOSTILE_ONLY) {
+            assertTrue(rule.appliesTo(MobCategory.MONSTER), rule + " must still stop monsters");
+            assertFalse(rule.appliesTo(MobCategory.CREATURE), rule + " must not stop animals");
+            assertFalse(rule.appliesTo(MobCategory.AMBIENT), rule + " must not stop bats");
+            assertFalse(rule.appliesTo(MobCategory.WATER_CREATURE), rule + " must not stop fish");
+        }
+    }
+
+    @Test
+    @DisplayName("every other rule binds every category")
+    void universalRulesBindEverything() {
+        for (SpawnRule rule : SpawnRule.values()) {
+            if (HOSTILE_ONLY.contains(rule)) {
+                continue;
+            }
+            for (MobCategory category : MobCategory.values()) {
+                assertTrue(rule.appliesTo(category),
+                    rule + " stopped applying to " + category.getName()
+                        + "; a gate the report quietly exempts a mob from is a gate it stops reporting");
+            }
+        }
     }
 
     @Test
